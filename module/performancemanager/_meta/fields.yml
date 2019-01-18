@@ -1,0 +1,11 @@
+- key: performancemanager
+  title: "performancemanager"
+  description: >
+    experimental[]
+
+    performancemanager module
+  fields:
+    - name: performancemanager
+      type: group
+      description: >
+      fields:

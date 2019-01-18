@@ -1,0 +1,1 @@
+This is the virtualmachines metricset of the module performancemanager.

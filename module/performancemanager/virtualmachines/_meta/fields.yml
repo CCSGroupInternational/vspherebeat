@@ -1,0 +1,9 @@
+- name: virtualmachines
+  type: group
+  description: >
+    virtualmachines
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field

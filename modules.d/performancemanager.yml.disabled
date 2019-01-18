@@ -1,0 +1,9 @@
+# Module: performancemanager
+# Docs: https://www.elastic.co/guide/en/beats/vspherebeat//vspherebeat-module-performancemanager.html
+
+- module: performancemanager
+  metricsets: ["virtualmachines"]
+  enabled: false
+  period: 10s
+  hosts: ["localhost"]
+

@@ -1,0 +1,39 @@
+////
+This file is generated! See scripts/docs_collector.py
+////
+
+[[metricbeat-module-performancemanager]]
+== performancemanager module
+
+experimental[]
+
+This is the performancemanager module.
+
+
+
+[float]
+=== Example configuration
+
+The performancemanager module supports the standard configuration options that are described
+in <<configuration-metricbeat>>. Here is an example configuration:
+
+[source,yaml]
+----
+vspherebeat.modules:
+- module: performancemanager
+  metricsets: ["virtualmachines"]
+  enabled: false
+  period: 10s
+  hosts: ["localhost"]
+
+----
+
+[float]
+=== Metricsets
+
+The following metricsets are available:
+
+* <<metricbeat-metricset-performancemanager-virtualmachines,virtualmachines>>
+
+include::performancemanager/virtualmachines.asciidoc[]
+
