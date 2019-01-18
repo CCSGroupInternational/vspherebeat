@@ -7,6 +7,7 @@ import (
 	"time"
 	"github.com/CCSGroupInternational/vsphere-perfmanager/config"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -68,6 +69,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Insecure : m.Insecure,
 		},
 		QueryInterval: m.Period,
+		Properties: []types.PropertySpec{{
+			Type: string(config.Hosts),
+			PathSet: []string{"parent"},
+		}},
 	}
 
 	vspherePerfManager, err := pm.Init(&vspherePmConfig)
@@ -86,7 +91,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		for _, metric := range host.Metrics {
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"name"   : host.GetProperty("name").(string),
+					"name"      : host.GetProperty("name").(string),
+					"hostId"    : host.Entity.Value,
+					"clusterId" : host.GetProperty("parent").(types.ManagedObjectReference).Value,
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
 							"metric"    : metric.Info.Metric,
@@ -101,6 +108,5 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				},
 			})
 		}
-
 	}
 }
