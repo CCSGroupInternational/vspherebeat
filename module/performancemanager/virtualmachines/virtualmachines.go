@@ -69,15 +69,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Insecure : m.Insecure,
 		},
 		QueryInterval: m.Period,
-		Metrics: map[config.EntitiesType][]config.MetricDef{
-			config.VMs: {
-				config.MetricDef{
-					Metric:   "net.packets*",
-					Entities: []string{"dropbox"},
-					Instance: []string{"vmnic\\d"},
-				},
-			},
-		},
 		Properties: []types.PropertySpec{{
 			Type: string(config.VMs),
 			PathSet: []string{"runtime.host"},
