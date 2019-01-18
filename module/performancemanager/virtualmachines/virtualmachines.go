@@ -101,6 +101,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"name"   : vm.GetProperty("name").(string),
+					"vmId"   : vm.Entity.Value,
 					"hostId" : vm.GetProperty("runtime.host").(types.ManagedObjectReference).Value,
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
