@@ -7,3 +7,4 @@ vspherebeat
 
 # Config Files
 modules.d/performancemanager.yml
+beat.yml
