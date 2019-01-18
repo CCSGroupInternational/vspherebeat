@@ -2,9 +2,9 @@
 # Docs: https://www.elastic.co/guide/en/beats/vspherebeat//vspherebeat-module-performancemanager.html
 
 - module: performancemanager
-  metricsets: ["virtualmachines"]
+  metricsets: ["virtualmachines", "hosts"]
   enabled: false
-  period: 10s
+  period: 20s
   hosts: ["localhost"]
   username: "username"
   password: "password"
