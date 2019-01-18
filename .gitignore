@@ -1,2 +1,9 @@
 # Directories
 build
+.idea
+
+# Binary
+vspherebeat
+
+# Config Files
+modules.d/performancemanager.yml
