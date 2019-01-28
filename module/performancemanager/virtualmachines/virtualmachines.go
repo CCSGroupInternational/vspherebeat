@@ -3,11 +3,9 @@ package virtualmachines
 import (
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
-	"github.com/CCSGroupInternational/vsphere-perfmanager/config"
 	 pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"time"
 	"github.com/elastic/beats/libbeat/common"
-	"github.com/vmware/govmomi/vim25/types"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -61,46 +59,49 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
-	vspherePmConfig := config.VspherePerfManagerConfig{
-		Vcenter: config.Vcenter {
-			Username : m.Username,
-			Password : m.Password,
-			Host     : m.Hosts[0],
-			Insecure : m.Insecure,
+
+	vspherePm := pm.VspherePerfManager{
+		Config: pm.Config{
+			Vcenter: pm.Vcenter{
+				Username : m.Username,
+				Password : m.Password,
+				Host     : m.Hosts[0],
+				Insecure : m.Insecure,
+			},
+			Samples: 6,
+			Data: map[string][]string{
+				string(pm.VMs):      {"runtime.host"},
+				string(pm.Hosts):    {"parent"},
+				pm.Clusters: {},
+			},
 		},
-		QueryInterval: m.Period,
-		Properties: []types.PropertySpec{{
-			Type: string(config.VMs),
-			PathSet: []string{"runtime.host"},
-		}},
 	}
 
-	vspherePerfManager, err := pm.Init(&vspherePmConfig)
+	err := vspherePm.Init()
 
 	if err == nil {
 
 	}
 
-	vms, err := vspherePerfManager.Vms()
-
-	if err == nil {
-
-	}
+	vms := vspherePm.Get(pm.VMs)
 
 	for _, vm := range vms {
 		for _, metric := range vm.Metrics {
+			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"name"   : vm.GetProperty("name").(string),
-					"vmId"   : vm.Entity.Value,
-					"hostId" : vm.GetProperty("runtime.host").(types.ManagedObjectReference).Value,
+					"metaData": common.MapStr{
+						"name"   :  vspherePm.GetProperty(vm, "name").(string),
+						"host"   :  vspherePm.GetProperty(host, "name").(string),
+						"cluster" : vspherePm.GetProperty(vspherePm.GetProperty(host, "parent").(pm.ManagedObject), "name").(string),
+					},
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
 							"metric"    : metric.Info.Metric,
 							"statsType" : metric.Info.StatsType,
 							"unitInfo"  : metric.Info.UnitInfo,
 						},
-						"result": common.MapStr{
+						"sample": common.MapStr{
 							"value"    : metric.Value.Value,
 							"instance" : metric.Value.Instance,
 						},
@@ -111,3 +112,4 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	}
 }
+
