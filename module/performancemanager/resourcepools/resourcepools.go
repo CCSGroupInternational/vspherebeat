@@ -94,7 +94,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{
 						"name"    : vspherePm.GetProperty(resourcePool, "name").(string),
-						"Cluster" : cluster,
+						"cluster" : cluster,
 					},
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
