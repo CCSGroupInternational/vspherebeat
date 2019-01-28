@@ -81,7 +81,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	}
 	datastores := vspherePm.Get(pm.Datastores)
 	for _, datastore := range datastores {
-		fmt.Println(datastore)
 		for _, metric := range datastore.Metrics {
 			fmt.Println(metric)
 			report.Event(mb.Event{

@@ -87,7 +87,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{
-						"cluster"   :  vspherePm.GetProperty(cluster, "name").(string),
+						"name" : vspherePm.GetProperty(cluster, "name").(string),
 					},
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
