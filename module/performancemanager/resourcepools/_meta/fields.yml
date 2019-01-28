@@ -1,0 +1,9 @@
+- name: resourcepools
+  type: group
+  description: >
+    resourcepools
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field

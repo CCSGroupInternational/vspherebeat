@@ -1,0 +1,1 @@
+This is the resourcepools metricset of the module performancemanager.
