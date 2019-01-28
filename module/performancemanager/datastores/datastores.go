@@ -6,7 +6,6 @@ import (
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
-	"fmt"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -82,7 +81,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	datastores := vspherePm.Get(pm.Datastores)
 	for _, datastore := range datastores {
 		for _, metric := range datastore.Metrics {
-			fmt.Println(metric)
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{

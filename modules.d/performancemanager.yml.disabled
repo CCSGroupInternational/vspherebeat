@@ -2,7 +2,7 @@
 # Docs: https://www.elastic.co/guide/en/beats/vspherebeat//vspherebeat-module-performancemanager.html
 
 - module: performancemanager
-  metricsets: ["virtualmachines", "hosts", "clusters", "datastores"]
+  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools"]
   enabled: false
   period: 20s
   hosts: ["localhost"]
