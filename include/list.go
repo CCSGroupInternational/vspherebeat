@@ -28,6 +28,7 @@ package include
 import (
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/clusters"
+	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/datastores"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/hosts"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/virtualmachines"
 )
