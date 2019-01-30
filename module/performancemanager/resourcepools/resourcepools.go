@@ -70,7 +70,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Samples: 6,
 			Data: map[string][]string{
 				string(pm.ResourcePools): {"parent"},
-				string(pm.Clusters): {},
+				string(pm.Clusters): {"parent"},
+				"Folder": {"parent"},
+				string(pm.Datacenter): {},
 			},
 		},
 	}
@@ -82,19 +84,33 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	resourcePools := vspherePm.Get(pm.ResourcePools)
 	for _, resourcePool := range resourcePools {
 		for _, metric := range resourcePool.Metrics {
-			var cluster string
+			var cluster, datacenter pm.ManagedObject
 			switch parentType := vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject).Entity.Type; parentType {
 			case string(pm.Clusters):
-				cluster = vspherePm.GetProperty(vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject), "name").(string)
+				cluster = vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject)
 			case string(pm.ResourcePools):
-				cluster = vspherePm.GetProperty(vspherePm.GetProperty(vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject),"parent").(pm.ManagedObject), "name").(string)
+				cluster = vspherePm.GetProperty(vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject),"parent").(pm.ManagedObject)
+			}
+
+			switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
+			case "Folder":
+				for {
+					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
+					if parent.Entity.Type == string(pm.Datacenter) {
+						datacenter = parent
+						break
+					}
+				}
+			case string(pm.Datacenter):
+				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
 			}
 
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{
 						"name"    : vspherePm.GetProperty(resourcePool, "name").(string),
-						"cluster" : cluster,
+						"cluster"    : vspherePm.GetProperty(cluster, "name").(string),
+						"datacenter" : vspherePm.GetProperty(datacenter, "name").(string),
 					},
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
