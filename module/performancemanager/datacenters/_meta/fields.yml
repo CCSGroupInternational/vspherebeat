@@ -1,0 +1,9 @@
+- name: datacenters
+  type: group
+  description: >
+    datacenters
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field
