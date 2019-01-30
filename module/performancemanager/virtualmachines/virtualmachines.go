@@ -72,7 +72,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Data: map[string][]string{
 				string(pm.VMs):      {"runtime.host"},
 				string(pm.Hosts):    {"parent"},
-				pm.Clusters: {},
+				string(pm.Clusters): {},
 			},
 		},
 	}

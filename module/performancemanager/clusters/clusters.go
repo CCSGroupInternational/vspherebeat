@@ -69,7 +69,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			},
 			Samples: 6,
 			Data: map[string][]string{
-				pm.Clusters: {},
+				string(pm.Clusters): {},
 			},
 		},
 	}
