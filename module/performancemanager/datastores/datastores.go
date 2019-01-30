@@ -6,6 +6,7 @@ import (
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"strconv"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -70,6 +71,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Samples: 6,
 			Data: map[string][]string{
 				string(pm.Datastores): {"summary.url"},
+				string(pm.VMs): {},
 			},
 		},
 	}
@@ -81,6 +83,18 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	datastores := vspherePm.Get(pm.Datastores)
 	for _, datastore := range datastores {
 		for _, metric := range datastore.Metrics {
+
+			var instance string
+			if len(metric.Value.Instance) != 0 {
+				if _, err := strconv.Atoi(metric.Value.Instance); err == nil {
+					instance = vspherePm.GetProperty(vspherePm.GetObject(string(pm.VMs), "vm-" + metric.Value.Instance), "name").(string)
+				} else {
+					instance = metric.Value.Instance
+				}
+			} else {
+				instance = metric.Value.Instance
+			}
+
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{
@@ -95,7 +109,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 						},
 						"sample": common.MapStr{
 							"value"    : metric.Value.Value,
-							"instance" : metric.Value.Instance,
+							"instance" : instance,
 						},
 					},
 				},
