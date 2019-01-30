@@ -69,11 +69,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			},
 			Samples: 6,
 			Data: map[string][]string{
-				string(pm.Vapp): {"parent"},
+				string(pm.Vapps): {"parent"},
 				string(pm.ResourcePools): {"parent"},
 				string(pm.Clusters): {"parent"},
 				"Folder": {"parent"},
-				string(pm.Datacenter): {},
+				string(pm.Datacenters): {},
 			},
 		},
 	}
@@ -84,7 +84,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	}
 
-	vapps := vspherePm.Get(pm.Vapp)
+	vapps := vspherePm.Get(pm.Vapps)
 
 	for _, vapp := range vapps {
 		for _, metric := range vapp.Metrics {
@@ -104,12 +104,12 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			case "Folder":
 				for {
 					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
-					if parent.Entity.Type == string(pm.Datacenter) {
+					if parent.Entity.Type == string(pm.Datacenters) {
 						datacenter = parent
 						break
 					}
 				}
-			case string(pm.Datacenter):
+			case string(pm.Datacenters):
 				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
 			}
 

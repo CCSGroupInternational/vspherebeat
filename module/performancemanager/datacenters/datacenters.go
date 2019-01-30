@@ -70,7 +70,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			},
 			Samples: 6,
 			Data: map[string][]string{
-				string(pm.Datacenter): {},
+				string(pm.Datacenters): {},
 			},
 		},
 	}
@@ -81,7 +81,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	}
 
-	datacenters := vspherePm.Get(pm.Datacenter)
+	datacenters := vspherePm.Get(pm.Datacenters)
 
 	for _, datacenter := range datacenters {
 		for _, metric := range datacenter.Metrics {

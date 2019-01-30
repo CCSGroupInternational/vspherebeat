@@ -71,7 +71,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Data: map[string][]string{
 				string(pm.Clusters): {"parent"},
 				"Folder": {"parent"},
-				string(pm.Datacenter): {},
+				string(pm.Datacenters): {},
 			},
 		},
 	}
@@ -92,12 +92,12 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			case "Folder":
 				for {
 					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
-					if parent.Entity.Type == string(pm.Datacenter) {
+					if parent.Entity.Type == string(pm.Datacenters) {
 						datacenter = parent
 						break
 					}
 				}
-			case string(pm.Datacenter):
+			case string(pm.Datacenters):
 				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
 			}
 
