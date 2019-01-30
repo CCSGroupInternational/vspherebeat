@@ -69,7 +69,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			},
 			Samples: 6,
 			Data: map[string][]string{
-				string(pm.Clusters): {},
+				string(pm.Clusters): {"parent"},
+				"Folder": {"parent"},
+				string(pm.Datacenter): {},
 			},
 		},
 	}
@@ -84,10 +86,26 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	for _, cluster := range clusters {
 		for _, metric := range cluster.Metrics {
+
+			var datacenter pm.ManagedObject
+			switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
+			case "Folder":
+				for {
+					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
+					if parent.Entity.Type == string(pm.Datacenter) {
+						datacenter = parent
+						break
+					}
+				}
+			case string(pm.Datacenter):
+				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
+			}
+
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": common.MapStr{
 						"name" : vspherePm.GetProperty(cluster, "name").(string),
+						"datacenter" : vspherePm.GetProperty(datacenter, "name").(string),
 					},
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
