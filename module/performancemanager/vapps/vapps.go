@@ -71,7 +71,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			Data: map[string][]string{
 				string(pm.Vapp): {"parent"},
 				string(pm.ResourcePools): {"parent"},
-				string(pm.Clusters): {},
+				string(pm.Clusters): {"parent"},
+				"Folder": {"parent"},
+				string(pm.Datacenter): {},
 			},
 		},
 	}
@@ -89,12 +91,29 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			metaData := common.MapStr{
 				"name"   :  vspherePm.GetProperty(vapp, "name").(string),
 			}
+			var cluster, datacenter pm.ManagedObject
 			switch parentType := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject).Entity.Type; parentType {
 			case string(pm.ResourcePools):
 				resourcePool := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject)
-				metaData["resourcePool"] =vspherePm.GetProperty(resourcePool, "name").(string)
-				metaData["cluster"] = vspherePm.GetProperty(vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject), "name").(string)
+				metaData["resourcePool"] = vspherePm.GetProperty(resourcePool, "name").(string)
+				cluster = vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject)
+				metaData["cluster"] = vspherePm.GetProperty(cluster, "name").(string)
 			}
+
+			switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
+			case "Folder":
+				for {
+					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
+					if parent.Entity.Type == string(pm.Datacenter) {
+						datacenter = parent
+						break
+					}
+				}
+			case string(pm.Datacenter):
+				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
+			}
+
+			metaData["datacenter"] = vspherePm.GetProperty(datacenter, "name").(string)
 
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
