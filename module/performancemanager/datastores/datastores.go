@@ -70,8 +70,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			},
 			Samples: 6,
 			Data: map[string][]string{
-				string(pm.Datastores): {"summary.url"},
+				string(pm.Datastores):        {"summary.url", "parent"},
 				string(pm.VMs): {},
+				string(pm.DatastoreClusters): {"parent"},
+				string(pm.Folders):           {"parent"},
+				string(pm.Datacenters):       {},
 			},
 		},
 	}
@@ -83,7 +86,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	datastores := vspherePm.Get(pm.Datastores)
 	for _, datastore := range datastores {
 		for _, metric := range datastore.Metrics {
-
 			var instance string
 			if len(metric.Value.Instance) != 0 {
 				if _, err := strconv.Atoi(metric.Value.Instance); err == nil {
@@ -95,12 +97,38 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				instance = metric.Value.Instance
 			}
 
+			var datastoreCluster, datacenter pm.ManagedObject
+			flag := false
+			parentObject := vspherePm.GetProperty(datastore, "parent").(pm.ManagedObject)
+			for {
+				switch parentType := parentObject.Entity.Type; parentType {
+				case string(pm.DatastoreClusters):
+					datastoreCluster = parentObject
+					parentObject = vspherePm.GetProperty(parentObject, "parent").(pm.ManagedObject)
+				case string(pm.Folders):
+					parentObject = vspherePm.GetProperty(parentObject, "parent").(pm.ManagedObject)
+				case string(pm.Datacenters):
+					datacenter = parentObject
+					flag = true
+				}
+
+				if flag {
+					break
+				}
+			}
+
+			metaData := common.MapStr{
+				"name"       : vspherePm.GetProperty(datastore, "name").(string),
+				"url"        : vspherePm.GetProperty(datastore, "summary.url").(string),
+				"datacenter" : vspherePm.GetProperty(datacenter, "name").(string),
+			}
+			if len(datastoreCluster.Entity.Value) != 0 {
+				metaData["datastoreCluster"] = vspherePm.GetProperty(datastoreCluster, "name").(string)
+			}
+
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"metaData": common.MapStr{
-						"name" :  vspherePm.GetProperty(datastore, "name").(string),
-						"url"  : vspherePm.GetProperty(datastore, "summary.url").(string),
-					},
+					"metaData": metaData,
 					"metric" : common.MapStr{
 						"info" : common.MapStr{
 							"metric"    : metric.Info.Metric,
