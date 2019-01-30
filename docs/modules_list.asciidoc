@@ -6,11 +6,12 @@ This file is generated! See scripts/docs_collector.py
 |===================================
 |Modules   |Dashboards   |Metricsets   
 |<<metricbeat-module-performancemanager,performancemanager>>  experimental[]   |image:./images/icon-no.png[No prebuilt dashboards]    |  
-.6+| .6+|  |<<metricbeat-metricset-performancemanager-clusters,clusters>> experimental[]  
+.7+| .7+|  |<<metricbeat-metricset-performancemanager-clusters,clusters>> experimental[]  
 |<<metricbeat-metricset-performancemanager-datacenters,datacenters>> experimental[]  
 |<<metricbeat-metricset-performancemanager-datastores,datastores>> experimental[]  
 |<<metricbeat-metricset-performancemanager-hosts,hosts>> experimental[]  
 |<<metricbeat-metricset-performancemanager-resourcepools,resourcepools>> experimental[]  
+|<<metricbeat-metricset-performancemanager-vapps,vapps>> experimental[]  
 |<<metricbeat-metricset-performancemanager-virtualmachines,virtualmachines>> experimental[]  
 |================================
 

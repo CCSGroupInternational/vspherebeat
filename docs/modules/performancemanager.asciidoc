@@ -21,7 +21,7 @@ in <<configuration-metricbeat>>. Here is an example configuration:
 ----
 vspherebeat.modules:
 - module: performancemanager
-  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools"]
+  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters"]
   enabled: false
   period: 20s
   hosts: ["localhost"]
@@ -44,6 +44,8 @@ The following metricsets are available:
 
 * <<metricbeat-metricset-performancemanager-resourcepools,resourcepools>>
 
+* <<metricbeat-metricset-performancemanager-vapps,vapps>>
+
 * <<metricbeat-metricset-performancemanager-virtualmachines,virtualmachines>>
 
 include::performancemanager/clusters.asciidoc[]
@@ -55,6 +57,8 @@ include::performancemanager/datastores.asciidoc[]
 include::performancemanager/hosts.asciidoc[]
 
 include::performancemanager/resourcepools.asciidoc[]
+
+include::performancemanager/vapps.asciidoc[]
 
 include::performancemanager/virtualmachines.asciidoc[]
 

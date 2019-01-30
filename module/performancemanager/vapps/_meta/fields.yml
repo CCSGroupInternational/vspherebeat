@@ -1,0 +1,9 @@
+- name: vapps
+  type: group
+  description: >
+    vapps
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field
