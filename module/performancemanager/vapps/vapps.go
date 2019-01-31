@@ -6,6 +6,7 @@ import (
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -59,26 +60,16 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
-	vspherePm := pm.VspherePerfManager{
-		Config: pm.Config{
-			Vcenter: pm.Vcenter{
-				Username : m.Username,
-				Password : m.Password,
-				Host     : m.Hosts[0],
-				Insecure : m.Insecure,
-			},
-			Samples: 6,
-			Data: map[string][]string{
-				string(pm.Vapps): {"parent"},
-				string(pm.ResourcePools): {"parent"},
-				string(pm.Clusters): {"parent"},
-				"Folder": {"parent"},
-				string(pm.Datacenters): {},
-			},
-		},
+
+	data := map[string][]string{
+		string(pm.Vapps):         {"parent"},
+		string(pm.ResourcePools): {"parent"},
+		string(pm.Clusters):      {"parent"},
+		string(pm.Folders):       {"parent"},
+		string(pm.Datacenters):   {},
 	}
 
-	err := vspherePm.Init()
+	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
 
 	if err == nil {
 
@@ -91,7 +82,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			metaData := common.MapStr{
 				"name"   :  vspherePm.GetProperty(vapp, "name").(string),
 			}
-			var cluster, datacenter pm.ManagedObject
+			var cluster pm.ManagedObject
 			switch parentType := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject).Entity.Type; parentType {
 			case string(pm.ResourcePools):
 				resourcePool := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject)
@@ -100,35 +91,12 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				metaData["cluster"] = vspherePm.GetProperty(cluster, "name").(string)
 			}
 
-			switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
-			case "Folder":
-				for {
-					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
-					if parent.Entity.Type == string(pm.Datacenters) {
-						datacenter = parent
-						break
-					}
-				}
-			case string(pm.Datacenters):
-				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
-			}
-
-			metaData["datacenter"] = vspherePm.GetProperty(datacenter, "name").(string)
+			metaData["datacenter"] = vspherePm.GetProperty(performancemanager.Datacenter(vspherePm, cluster), "name").(string)
 
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": metaData,
-					"metric" : common.MapStr{
-						"info" : common.MapStr{
-							"metric"    : metric.Info.Metric,
-							"statsType" : metric.Info.StatsType,
-							"unitInfo"  : metric.Info.UnitInfo,
-						},
-						"sample": common.MapStr{
-							"value"    : metric.Value.Value,
-							"instance" : metric.Value.Instance,
-						},
-					},
+					"metric" : performancemanager.Metric(metric),
 				},
 			})
 		}

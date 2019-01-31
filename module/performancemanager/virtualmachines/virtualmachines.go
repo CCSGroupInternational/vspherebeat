@@ -6,6 +6,7 @@ import (
 	 pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"time"
 	"github.com/elastic/beats/libbeat/common"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -60,26 +61,15 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
-	vspherePm := pm.VspherePerfManager{
-		Config: pm.Config{
-			Vcenter: pm.Vcenter{
-				Username : m.Username,
-				Password : m.Password,
-				Host     : m.Hosts[0],
-				Insecure : m.Insecure,
-			},
-			Samples: 6,
-			Data: map[string][]string{
-				string(pm.VMs):      {"runtime.host"},
-				string(pm.Hosts):    {"parent"},
-				string(pm.Clusters): {"parent"},
-				"Folder": {"parent"},
-				string(pm.Datacenters): {},
-			},
-		},
+	data := map[string][]string{
+		string(pm.VMs):      {"runtime.host"},
+		string(pm.Hosts):    {"parent"},
+		string(pm.Clusters): {"parent"},
+		string(pm.Folders):  {"parent"},
+		string(pm.Datacenters): {},
 	}
 
-	err := vspherePm.Init()
+	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
 
 	if err == nil {
 
@@ -91,19 +81,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		for _, metric := range vm.Metrics {
 			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
 			cluster := vspherePm.GetProperty(host, "parent").(pm.ManagedObject)
-			var datacenter pm.ManagedObject
-			switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
-			case "Folder":
-				for {
-					parent := vspherePm.GetProperty(vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject), "parent").(pm.ManagedObject)
-					if parent.Entity.Type == string(pm.Datacenters) {
-						datacenter = parent
-						break
-					}
-				}
-			case string(pm.Datacenters):
-				datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
-			}
 
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
@@ -111,19 +88,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 						"name"       : vspherePm.GetProperty(vm, "name").(string),
 						"host"       : vspherePm.GetProperty(host, "name").(string),
 						"cluster"    : vspherePm.GetProperty(cluster, "name").(string),
-						"datacenter" : vspherePm.GetProperty(datacenter, "name").(string),
+						"datacenter" : vspherePm.GetProperty(performancemanager.Datacenter(vspherePm, cluster), "name").(string),
 					},
-					"metric" : common.MapStr{
-						"info" : common.MapStr{
-							"metric"    : metric.Info.Metric,
-							"statsType" : metric.Info.StatsType,
-							"unitInfo"  : metric.Info.UnitInfo,
-						},
-						"sample": common.MapStr{
-							"value"    : metric.Value.Value,
-							"instance" : metric.Value.Instance,
-						},
-					},
+					"metric" : performancemanager.Metric(metric),
 				},
 			})
 		}

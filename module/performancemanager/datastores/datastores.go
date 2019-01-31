@@ -7,6 +7,7 @@ import (
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"strconv"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -60,29 +61,21 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
-	vspherePm := pm.VspherePerfManager{
-		Config: pm.Config{
-			Vcenter: pm.Vcenter{
-				Username : m.Username,
-				Password : m.Password,
-				Host     : m.Hosts[0],
-				Insecure : m.Insecure,
-			},
-			Samples: 6,
-			Data: map[string][]string{
-				string(pm.Datastores):        {"summary.url", "parent"},
-				string(pm.VMs): {},
-				string(pm.DatastoreClusters): {"parent"},
-				string(pm.Folders):           {"parent"},
-				string(pm.Datacenters):       {},
-			},
-		},
+
+	data := map[string][]string{
+		string(pm.Datastores):        {"summary.url", "parent"},
+		string(pm.VMs):               {},
+		string(pm.DatastoreClusters): {"parent"},
+		string(pm.Folders):           {"parent"},
+		string(pm.Datacenters):       {},
 	}
-	err := vspherePm.Init()
+
+	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
 
 	if err == nil {
 
 	}
+
 	datastores := vspherePm.Get(pm.Datastores)
 	for _, datastore := range datastores {
 		for _, metric := range datastore.Metrics {
@@ -129,17 +122,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
 					"metaData": metaData,
-					"metric" : common.MapStr{
-						"info" : common.MapStr{
-							"metric"    : metric.Info.Metric,
-							"statsType" : metric.Info.StatsType,
-							"unitInfo"  : metric.Info.UnitInfo,
-						},
-						"sample": common.MapStr{
-							"value"    : metric.Value.Value,
-							"instance" : instance,
-						},
-					},
+					"metric" : performancemanager.MetricWithCustomInstance(metric, instance),
 				},
 			})
 		}

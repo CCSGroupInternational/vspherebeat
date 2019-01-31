@@ -6,6 +6,7 @@ import (
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -60,22 +61,11 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
-	vspherePm := pm.VspherePerfManager{
-		Config: pm.Config{
-			Vcenter: pm.Vcenter{
-				Username : m.Username,
-				Password : m.Password,
-				Host     : m.Hosts[0],
-				Insecure : m.Insecure,
-			},
-			Samples: 6,
-			Data: map[string][]string{
-				string(pm.Datacenters): {},
-			},
-		},
+	data := map[string][]string{
+		string(pm.Datacenters): {},
 	}
 
-	err := vspherePm.Init()
+	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
 
 	if err == nil {
 
@@ -90,17 +80,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metaData": common.MapStr{
 						"name"   :  vspherePm.GetProperty(datacenter, "name").(string),
 					},
-					"metric" : common.MapStr{
-						"info" : common.MapStr{
-							"metric"    : metric.Info.Metric,
-							"statsType" : metric.Info.StatsType,
-							"unitInfo"  : metric.Info.UnitInfo,
-						},
-						"sample": common.MapStr{
-							"value"    : metric.Value.Value,
-							"instance" : metric.Value.Instance,
-						},
-					},
+					"metric" : performancemanager.Metric(metric),
 				},
 			})
 		}
