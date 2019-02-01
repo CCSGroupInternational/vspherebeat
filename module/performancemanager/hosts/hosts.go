@@ -28,19 +28,21 @@ type MetricSet struct {
 	Username string
 	Password string
 	Insecure bool
+	Counters []interface{}
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
 // any MetricSet specific configuration options if there are any.
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
-	cfgwarn.Experimental("The performancemanager virtualmachines metricset is experimental.")
+	cfgwarn.Experimental("The performancemanager hosts metricset is experimental.")
 
 	config := struct{
-		Period   time.Duration `config:"period"`
-		Hosts    []string      `config:"hosts"`
-		Username string        `config:"username"`
-		Password string        `config:"password"`
-		Insecure bool          `config:"insecure"`
+		Period   time.Duration           `config:"period"`
+		Hosts    []string                `config:"hosts"`
+		Username string                  `config:"username"`
+		Password string                  `config:"password"`
+		Insecure bool                    `config:"insecure"`
+		Counters []interface{} `config:"counters"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -48,11 +50,12 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 
 	return &MetricSet{
 		BaseMetricSet: base,
-		Period:   config.Period,
-		Hosts:    config.Hosts,
-		Username: config.Username,
-		Password: config.Password,
-		Insecure: config.Insecure,
+		Period:        config.Period,
+		Hosts:         config.Hosts,
+		Username:      config.Username,
+		Password:      config.Password,
+		Insecure:      config.Insecure,
+		Counters:      config.Counters,
 	}, nil
 }
 
@@ -74,7 +77,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	}
 
-	hosts := vspherePm.Get(pm.Hosts)
+	hosts := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
 
 	for _, host := range hosts {
 		for _, metric := range host.Metrics {

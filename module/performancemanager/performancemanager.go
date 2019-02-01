@@ -5,7 +5,6 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 )
 
-
 func Connect(user string, pass string, host string, insecure bool, data map[string][]string) (pm.VspherePerfManager, error) {
 	vspherePm := pm.VspherePerfManager{
 		Config: pm.Config{
@@ -21,6 +20,13 @@ func Connect(user string, pass string, host string, insecure bool, data map[stri
 	}
 	err := vspherePm.Init()
 	return vspherePm, err
+}
+
+func Fetch(metricset string, metrics []interface{}, vspherePm *pm.VspherePerfManager) []pm.ManagedObject {
+	if len(metrics) > 0 {
+		vspherePm.Config.Metrics = metricsToFilter(metrics[0], metricset)
+	}
+	return vspherePm.Get(getObjectsType(metricset))
 }
 
 func MetricWithCustomInstance (metric pm.Metric, instance string) common.MapStr {
@@ -48,7 +54,7 @@ func Datacenter(vspherePm pm.VspherePerfManager, cluster pm.ManagedObject) pm.Ma
 	return datacenter
 }
 
-func setMetric (metric pm.Metric, instance string) common.MapStr {
+func setMetric(metric pm.Metric, instance string) common.MapStr {
 	return common.MapStr{
 		"info" : common.MapStr{
 			"metric"    : metric.Info.Metric,
@@ -60,4 +66,61 @@ func setMetric (metric pm.Metric, instance string) common.MapStr {
 			"instance" : instance,
 		},
 	}
+}
+
+func metricsToFilter(metrics interface{}, metricset string) map[pm.PmSupportedEntities][]pm.MetricDef {
+
+	vsphereMetrics := make(map[pm.PmSupportedEntities][]pm.MetricDef)
+
+	if metrics.(map[string]interface{})[metricset] != nil {
+		for _, metric := range metrics.(map[string]interface{})[metricset].([]interface{}) {
+			var metricDef pm.MetricDef
+			if metric.(map[string]interface{})["Entities"] != nil {
+				entities := metric.(map[string]interface{})["Entities"].([]interface{})
+				for _, entity := range entities {
+					metricDef.Entities = append(metricDef.Entities, entity.(string))
+				}
+			}
+
+			if metric.(map[string]interface{})["Metrics"] != nil {
+				metrics := metric.(map[string]interface{})["Metrics"].([]interface{})
+				for _, met := range metrics {
+					metricDef.Metrics = append(metricDef.Metrics, met.(string))
+				}
+			}
+
+			if metric.(map[string]interface{})["Instances"] != nil {
+				instances := metric.(map[string]interface{})["Instances"].([]interface{})
+				for _, instance := range instances {
+					metricDef.Instances = append(metricDef.Instances, instance.(string))
+				}
+			}
+
+			vsphereMetrics[getObjectsType(metricset)] = append(vsphereMetrics[getObjectsType(metricset)], metricDef)
+		}
+	}
+
+	return vsphereMetrics
+}
+
+func getObjectsType(metricset string) pm.PmSupportedEntities {
+	switch metricset {
+	case "virtualmachines":
+		return pm.VMs
+	case "hosts":
+		return pm.Hosts
+	case "clusters":
+		return pm.Clusters
+	case "datastores":
+		return pm.Datastores
+	case "resourcepools":
+		return pm.ResourcePools
+	case "datacenters":
+		return pm.Datacenters
+	case "vapps":
+		return pm.Vapps
+	}
+
+	// TODO Fix this
+	return pm.VMs
 }
