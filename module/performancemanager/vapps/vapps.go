@@ -82,23 +82,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	for _, vapp := range vapps {
 		for _, metric := range vapp.Metrics {
-			metaData := common.MapStr{
-				"name"   :  vspherePm.GetProperty(vapp, "name").(string),
-			}
-			var cluster pm.ManagedObject
-			switch parentType := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject).Entity.Type; parentType {
-			case string(pm.ResourcePools):
-				resourcePool := vspherePm.GetProperty(vapp, "parent").(pm.ManagedObject)
-				metaData["resourcePool"] = vspherePm.GetProperty(resourcePool, "name").(string)
-				cluster = vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject)
-				metaData["cluster"] = vspherePm.GetProperty(cluster, "name").(string)
-			}
-
-			metaData["datacenter"] = vspherePm.GetProperty(performancemanager.Datacenter(vspherePm, cluster), "name").(string)
-
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"metaData": metaData,
+					"metaData": performancemanager.MetaData(vspherePm, vapp),
 					"metric" : performancemanager.Metric(metric),
 				},
 			})

@@ -65,7 +65,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	data := map[string][]string{
-		string(pm.VMs):      {"runtime.host"},
+		string(pm.VMs):      {"runtime.host", "parent"},
 		string(pm.Hosts):    {"parent"},
 		string(pm.Clusters): {"parent"},
 		string(pm.Folders):  {"parent"},
@@ -81,18 +81,19 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	vms := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
 
 	for _, vm := range vms {
+		metadata := performancemanager.MetaData(vspherePm, vm)
+		host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
+		metadataHost := performancemanager.MetaData(vspherePm, host)
+		metadataHost["host"] = metadataHost["name"]
+		delete(metadataHost, "name")
+		delete(metadataHost, "Folder")
+		for k, v := range metadataHost {
+			metadata[k] = v
+		}
 		for _, metric := range vm.Metrics {
-			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
-			cluster := vspherePm.GetProperty(host, "parent").(pm.ManagedObject)
-
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"metaData": common.MapStr{
-						"name"       : vspherePm.GetProperty(vm, "name").(string),
-						"host"       : vspherePm.GetProperty(host, "name").(string),
-						"cluster"    : vspherePm.GetProperty(cluster, "name").(string),
-						"datacenter" : vspherePm.GetProperty(performancemanager.Datacenter(vspherePm, cluster), "name").(string),
-					},
+					"metaData": metadata,
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
@@ -100,4 +101,3 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	}
 }
-

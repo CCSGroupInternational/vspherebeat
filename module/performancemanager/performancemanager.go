@@ -37,6 +37,33 @@ func Metric(metric pm.Metric) common.MapStr {
 	return setMetric(metric, metric.Value.Instance)
 }
 
+func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.MapStr {
+	parentObjects := getParents(vspherePm, object)
+
+	metadata := common.MapStr{
+		"name" : vspherePm.GetProperty(object, "name").(string),
+	}
+
+	if parentObjects != nil {
+		for objectType, parents := range parentObjects {
+			objectHierarchy := ""
+
+			for i, parent := range parents {
+				objectHierarchy += vspherePm.GetProperty(parent, "name").(string)
+				if i + 1 < len(parents) {
+					objectHierarchy += "/"
+				}
+			}
+
+			parent := vspherePm.GetProperty(parents[0], "name").(string)
+			metadata[objectType] = parent
+		}
+	}
+
+
+	return metadata
+}
+
 func Datacenter(vspherePm pm.VspherePerfManager, cluster pm.ManagedObject) pm.ManagedObject {
 	var datacenter pm.ManagedObject
 	switch parentType := vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject).Entity.Type; parentType {
@@ -52,6 +79,34 @@ func Datacenter(vspherePm pm.VspherePerfManager, cluster pm.ManagedObject) pm.Ma
 		datacenter = vspherePm.GetProperty(cluster, "parent").(pm.ManagedObject)
 	}
 	return datacenter
+}
+
+func getParents(vspherePm pm.VspherePerfManager, object pm.ManagedObject) map[string][]pm.ManagedObject {
+	if object.Entity.Type == string(pm.Datacenters) {
+		return nil
+	}
+	objectTemp := vspherePm.GetProperty(object, "parent")
+	parents := make(map[string][]pm.ManagedObject)
+	flag := false
+	for {
+		if objectTemp == nil {
+			break
+		}
+
+		parentObject := objectTemp.(pm.ManagedObject)
+		switch parentType := parentObject.Entity.Type; parentType {
+		case string(pm.Datacenters):
+			parents[parentType] = []pm.ManagedObject{parentObject}
+			flag = true
+		default:
+			parents[parentType] = append(parents[parentType], parentObject)
+			objectTemp = vspherePm.GetProperty(parentObject, "parent").(pm.ManagedObject)
+		}
+		if flag {
+			break
+		}
+	}
+	return parents
 }
 
 func setMetric(metric pm.Metric, instance string) common.MapStr {
@@ -124,3 +179,4 @@ func getObjectsType(metricset string) pm.PmSupportedEntities {
 	// TODO Fix this
 	return pm.VMs
 }
+

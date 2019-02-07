@@ -1,12 +1,12 @@
 package resourcepools
 
 import (
-	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
+	"github.com/elastic/beats/libbeat/common"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -69,6 +69,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Clusters)      : {"parent"},
 		string(pm.Folders)       : {"parent"},
 		string(pm.Datacenters)   : {},
+		string(pm.Vapps)         : {"parent"},
 	}
 
 	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
@@ -81,21 +82,9 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	for _, resourcePool := range resourcePools {
 		for _, metric := range resourcePool.Metrics {
-			var cluster pm.ManagedObject
-			switch parentType := vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject).Entity.Type; parentType {
-			case string(pm.Clusters):
-				cluster = vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject)
-			case string(pm.ResourcePools):
-				cluster = vspherePm.GetProperty(vspherePm.GetProperty(resourcePool, "parent").(pm.ManagedObject),"parent").(pm.ManagedObject)
-			}
-
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"metaData": common.MapStr{
-						"name"    : vspherePm.GetProperty(resourcePool, "name").(string),
-						"cluster"    : vspherePm.GetProperty(cluster, "name").(string),
-						"datacenter" : vspherePm.GetProperty(performancemanager.Datacenter(vspherePm, cluster), "name").(string),
-					},
+					"metaData": performancemanager.MetaData(vspherePm, resourcePool),
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
