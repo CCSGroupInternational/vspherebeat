@@ -3,9 +3,10 @@ package performancemanager
 import (
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/elastic/beats/libbeat/common"
+	"time"
 )
 
-func Connect(user string, pass string, host string, insecure bool, data map[string][]string) (pm.VspherePerfManager, error) {
+func Connect(user string, pass string, host string, insecure bool, interval time.Duration, data map[string][]string) (pm.VspherePerfManager, error) {
 	vspherePm := pm.VspherePerfManager{
 		Config: pm.Config{
 			Vcenter: pm.Vcenter{
@@ -14,7 +15,7 @@ func Connect(user string, pass string, host string, insecure bool, data map[stri
 				Host     : host,
 				Insecure : insecure,
 			},
-			Samples: 6,
+			Interval: interval,
 			Data: data,
 		},
 	}

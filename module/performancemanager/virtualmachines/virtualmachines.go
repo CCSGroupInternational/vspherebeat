@@ -72,7 +72,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters): {},
 	}
 
-	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, data)
+	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, m.Period, data)
 
 	if err == nil {
 
