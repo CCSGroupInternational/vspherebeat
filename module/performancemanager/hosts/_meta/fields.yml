@@ -1,9 +1,70 @@
 - name: hosts
   type: group
   description: >
-    hosts
+    Hosts MetricSet
   fields:
-    - name: example
-      type: keyword
+    - name: metaData
+      type: group
       description: >
-        Example field
+        Hosts MetaData
+      fields:
+        - name: Vcenter
+          type: keyword
+          description: >
+            Vcenter Host
+        - name: name
+          type: keyword
+          description: >
+            Host Name
+        - name: Datacenter
+          type: keyword
+          description: >
+            Datacenter Name
+        - name: Folder
+          type: keyword
+          description: >
+            Datacenter Folder
+        - name: ClusterComputeResource
+          type: keyword
+          description: >
+            Cluster
+    - name: metric
+      type: group
+      description: >
+        Metric Data
+      fields:
+        - name: info
+          type: group
+          description: >
+            Metric Info
+          fields:
+            - name: metric
+              type: keyword
+              description: >
+                Metric
+            - name: statsType
+              type: keyword
+              description: >
+                Metric Stats Type
+            - name: unitInfo
+              type: keyword
+              description: >
+                 Metric Unit Info
+        - name: sample
+          type: group
+          description: >
+            Metric Sample Data
+          fields:
+            - name: instance
+              type: keyword
+              description: >
+                Metric Instance
+            - name: value
+              type: long
+              description: >
+                Metric Value
+            - name: timestamp
+              type: date
+              description: >
+                 Metric Timestamp
+

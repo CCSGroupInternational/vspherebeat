@@ -1,9 +1,74 @@
 - name: datastores
   type: group
   description: >
-    datastores
+    Datacenter MetricSet
   fields:
-    - name: example
-      type: keyword
+    - name: metaData
+      type: group
       description: >
-        Example field
+        Datastores MetaData
+      fields:
+        - name: Vcenter
+          type: keyword
+          description: >
+            Vcenter Host
+        - name: name
+          type: keyword
+          description: >
+            Virtual Machine Name
+        - name: Datacenter
+          type: keyword
+          description: >
+            Datacenter Name
+        - name: Folder
+          type: keyword
+          description: >
+            Datacenter Folder
+        - name: StoragePod
+          type: keyword
+          description: >
+            Datastore Cluster
+        - name: url
+          type: keyword
+          description: >
+            Datastore URL
+    - name: metric
+      type: group
+      description: >
+        Metric Data
+      fields:
+        - name: info
+          type: group
+          description: >
+            Metric Info
+          fields:
+            - name: metric
+              type: keyword
+              description: >
+                Metric
+            - name: statsType
+              type: keyword
+              description: >
+                Metric Stats Type
+            - name: unitInfo
+              type: keyword
+              description: >
+                 Metric Unit Info
+        - name: sample
+          type: group
+          description: >
+            Metric Sample Data
+          fields:
+            - name: instance
+              type: keyword
+              description: >
+                Metric Instance
+            - name: value
+              type: long
+              description: >
+                Metric Value
+            - name: timestamp
+              type: date
+              description: >
+                 Metric Timestamp
+

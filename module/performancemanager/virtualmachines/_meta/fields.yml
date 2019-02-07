@@ -1,33 +1,29 @@
 - name: virtualmachines
   type: group
   description: >
-    virtualmachines
+    Virtual Machines Metricset
   fields:
     - name: metaData
       type: group
       description: >
         Virtual Machine MetaData
       fields:
+        - name: Vcenter
+          type: keyword
+          description: >
+            Vcenter Host
         - name: name
           type: keyword
           description: >
-            Virtual Machine Name
-        - name: host
-          type: keyword
-          description: >
-            Virtual Machine Runtime Host
+            Cluster Name
         - name: Folder
           type: keyword
           description: >
-            VirtualMachine Folder
-        - name: ClusterComputeResource
-          type: keyword
-          description: >
-            Virtual Machine Runtime Cluster
+            Cluster Folder
         - name: Datacenter
           type: keyword
           description: >
-            Virtual Machine Datacenter
+            Cluster Datacenter
     - name: metric
       type: group
       description: >
