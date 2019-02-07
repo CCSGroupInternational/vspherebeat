@@ -117,8 +117,9 @@ func setMetric(metric pm.Metric, instance string) common.MapStr {
 			"unitInfo"  : metric.Info.UnitInfo,
 		},
 		"sample": common.MapStr{
-			"value"    : metric.Value.Value,
-			"instance" : instance,
+			"value"     : metric.Value.Value,
+			"instance"  : instance,
+			"timestamp" : metric.Value.Timestamp,
 		},
 	}
 }
