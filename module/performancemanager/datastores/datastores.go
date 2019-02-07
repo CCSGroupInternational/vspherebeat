@@ -91,7 +91,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					instance = metric.Value.Instance
 				}
 			} else {
-				instance = metric.Value.Instance
+				instance = "*"
 			}
 
 			metaData := performancemanager.MetaData(vspherePm, datastore)

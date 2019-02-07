@@ -34,7 +34,13 @@ func MetricWithCustomInstance (metric pm.Metric, instance string) common.MapStr 
 }
 
 func Metric(metric pm.Metric) common.MapStr {
-	return setMetric(metric, metric.Value.Instance)
+	var instance string
+	if len(metric.Value.Instance) == 0 {
+		instance = "*"
+	} else {
+		instance = metric.Value.Instance
+	}
+	return setMetric(metric, instance)
 }
 
 func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.MapStr {
