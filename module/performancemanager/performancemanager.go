@@ -4,6 +4,7 @@ import (
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/elastic/beats/libbeat/common"
 	"time"
+	"regexp"
 )
 
 func Connect(user string, pass string, host string, insecure bool, interval time.Duration, data map[string][]string) (pm.VspherePerfManager, error) {
@@ -48,7 +49,8 @@ func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.M
 	parentObjects := getParents(vspherePm, object)
 
 	metadata := common.MapStr{
-		"name" : vspherePm.GetProperty(object, "name").(string),
+		"name"    : vspherePm.GetProperty(object, "name").(string),
+		"Vcenter" : findIP(vspherePm.Config.Vcenter.Host),
 	}
 
 	if parentObjects != nil {
@@ -188,3 +190,10 @@ func getObjectsType(metricset string) pm.PmSupportedEntities {
 	return pm.VMs
 }
 
+func findIP(input string) string {
+	numBlock := "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+	regexPattern := numBlock + "\\." + numBlock + "\\." + numBlock + "\\." + numBlock
+
+	regEx := regexp.MustCompile(regexPattern)
+	return regEx.FindString(input)
+}

@@ -68,23 +68,27 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters): {},
 	}
 
-	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, m.Period, data)
+	for _, host := range  m.Hosts {
+		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, data)
 
-	if err == nil {
+		if err == nil {
 
-	}
-
-	datacenters := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
-
-	for _, datacenter := range datacenters {
-		for _, metric := range datacenter.Metrics {
-			report.Event(mb.Event{
-				MetricSetFields: common.MapStr{
-					"metaData": performancemanager.MetaData(vspherePm, datacenter),
-					"metric" : performancemanager.Metric(metric),
-				},
-			})
 		}
 
+		datacenters := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
+
+		for _, datacenter := range datacenters {
+			metadata := performancemanager.MetaData(vspherePm, datacenter)
+			for _, metric := range datacenter.Metrics {
+				report.Event(mb.Event{
+					MetricSetFields: common.MapStr{
+						"metaData": metadata,
+						"metric" : performancemanager.Metric(metric),
+					},
+				})
+			}
+
+		}
 	}
+
 }

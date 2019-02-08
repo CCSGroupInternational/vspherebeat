@@ -72,32 +72,34 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters): {},
 	}
 
-	vspherePm, err := performancemanager.Connect(m.Username, m.Password, m.Hosts[0], m.Insecure, m.Period, data)
+	for _, host := range  m.Hosts {
+		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, data)
 
-	if err == nil {
+		if err == nil {
 
-	}
-
-	vms := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
-
-	for _, vm := range vms {
-		metadata := performancemanager.MetaData(vspherePm, vm)
-		host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
-		metadataHost := performancemanager.MetaData(vspherePm, host)
-		metadataHost["host"] = metadataHost["name"]
-		delete(metadataHost, "name")
-		delete(metadataHost, "Folder")
-		for k, v := range metadataHost {
-			metadata[k] = v
-		}
-		for _, metric := range vm.Metrics {
-			report.Event(mb.Event{
-				MetricSetFields: common.MapStr{
-					"metaData": metadata,
-					"metric" : performancemanager.Metric(metric),
-				},
-			})
 		}
 
+		vms := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
+
+		for _, vm := range vms {
+			metadata := performancemanager.MetaData(vspherePm, vm)
+			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
+			metadataHost := performancemanager.MetaData(vspherePm, host)
+			metadataHost["host"] = metadataHost["name"]
+			delete(metadataHost, "name")
+			delete(metadataHost, "Folder")
+			for k, v := range metadataHost {
+				metadata[k] = v
+			}
+			for _, metric := range vm.Metrics {
+				report.Event(mb.Event{
+					MetricSetFields: common.MapStr{
+						"metaData": metadata,
+						"metric" : performancemanager.Metric(metric),
+					},
+				})
+			}
+
+		}
 	}
 }
