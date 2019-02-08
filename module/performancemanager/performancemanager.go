@@ -26,7 +26,7 @@ func Connect(user string, pass string, host string, insecure bool, interval time
 
 func Fetch(metricset string, metrics []interface{}, vspherePm *pm.VspherePerfManager) []pm.ManagedObject {
 	if len(metrics) > 0 {
-		vspherePm.Config.Metrics = metricsToFilter(metrics[0], metricset)
+		vspherePm.Config.Metrics = metricsToFilter(metrics, metricset)
 	}
 	return vspherePm.Get(getObjectsType(metricset))
 }
@@ -137,31 +137,34 @@ func metricsToFilter(metrics interface{}, metricset string) map[pm.PmSupportedEn
 
 	vsphereMetrics := make(map[pm.PmSupportedEntities][]pm.MetricDef)
 
-	if metrics.(map[string]interface{})[metricset] != nil {
-		for _, metric := range metrics.(map[string]interface{})[metricset].([]interface{}) {
-			var metricDef pm.MetricDef
-			if metric.(map[string]interface{})["Entities"] != nil {
-				entities := metric.(map[string]interface{})["Entities"].([]interface{})
-				for _, entity := range entities {
-					metricDef.Entities = append(metricDef.Entities, entity.(string))
+	for _, counter := range metrics.([]interface{}) {
+		if counter.(map[string]interface{})[metricset] != nil {
+			for _, metric := range counter.(map[string]interface{})[metricset].([]interface{}) {
+				var metricDef pm.MetricDef
+				if metric.(map[string]interface{})["Entities"] != nil {
+					entities := metric.(map[string]interface{})["Entities"].([]interface{})
+					for _, entity := range entities {
+						metricDef.Entities = append(metricDef.Entities, entity.(string))
+					}
 				}
-			}
 
-			if metric.(map[string]interface{})["Metrics"] != nil {
-				metrics := metric.(map[string]interface{})["Metrics"].([]interface{})
-				for _, met := range metrics {
-					metricDef.Metrics = append(metricDef.Metrics, met.(string))
+				if metric.(map[string]interface{})["Metrics"] != nil {
+					metrics := metric.(map[string]interface{})["Metrics"].([]interface{})
+					for _, met := range metrics {
+						metricDef.Metrics = append(metricDef.Metrics, met.(string))
+					}
 				}
-			}
 
-			if metric.(map[string]interface{})["Instances"] != nil {
-				instances := metric.(map[string]interface{})["Instances"].([]interface{})
-				for _, instance := range instances {
-					metricDef.Instances = append(metricDef.Instances, instance.(string))
+				if metric.(map[string]interface{})["Instances"] != nil {
+					instances := metric.(map[string]interface{})["Instances"].([]interface{})
+					for _, instance := range instances {
+						metricDef.Instances = append(metricDef.Instances, instance.(string))
+					}
 				}
-			}
 
-			vsphereMetrics[getObjectsType(metricset)] = append(vsphereMetrics[getObjectsType(metricset)], metricDef)
+				vsphereMetrics[getObjectsType(metricset)] = append(vsphereMetrics[getObjectsType(metricset)], metricDef)
+			}
+			break
 		}
 	}
 
