@@ -1,12 +1,12 @@
 package clusters
 
 import (
-	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
-	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
+	"github.com/elastic/beats/libbeat/common"
+	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -29,6 +29,7 @@ type MetricSet struct {
 	Password string
 	Insecure bool
 	Counters []interface{}
+	Rollup   []interface{}
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
@@ -42,7 +43,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Username string                  `config:"username"`
 		Password string                  `config:"password"`
 		Insecure bool                    `config:"insecure"`
-		Counters []interface{} `config:"counters"`
+		Counters []interface{}           `config:"counters"`
+		Rollup   []interface{}           `config:"rollup"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -56,6 +58,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Password:      config.Password,
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
+		Rollup:        config.Rollup,
 	}, nil
 }
 
@@ -77,7 +80,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		}
 
-		clusters := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
+		clusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, cluster := range clusters {
 			metaData := performancemanager.MetaData(vspherePm, cluster)
@@ -92,5 +95,4 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			}
 		}
 	}
-
 }

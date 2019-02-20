@@ -24,9 +24,12 @@ func Connect(user string, pass string, host string, insecure bool, interval time
 	return vspherePm, err
 }
 
-func Fetch(metricset string, metrics []interface{}, vspherePm *pm.VspherePerfManager) []pm.ManagedObject {
+func Fetch(metricset string, metrics []interface{}, rollup []interface{}, vspherePm *pm.VspherePerfManager) []pm.ManagedObject {
 	if len(metrics) > 0 {
 		vspherePm.Config.Metrics = metricsToFilter(metrics, metricset)
+	}
+	if len(rollup) > 0 {
+		vspherePm.Config.Rollup = rollupFromConfig(rollup, metricset)
 	}
 	return vspherePm.Get(getObjectsType(metricset))
 }
@@ -199,4 +202,65 @@ func findIP(input string) string {
 
 	regEx := regexp.MustCompile(regexPattern)
 	return regEx.FindString(input)
+}
+
+func rollupFromConfig(rollup interface{}, metricset string) pm.Rollup {
+	var rollupConfig pm.Rollup
+	if rollup != nil {
+		for _, rollupStruct := range rollup.([]interface{}) {
+			interval := rollupStruct.(map[string]interface{})["Interval"].(uint64)
+			rollupConfig.Interval = time.Duration(interval) * time.Second
+			for _, rollupType := range rollupStruct.(map[string]interface{})["RollupType"].([]interface{}) {
+				rollupConfig.RollupType = append(rollupConfig.RollupType, pm.RollupTypes(rollupType.(string)))
+			}
+			if rollupStruct.(map[string]interface{})["Metrics"] != nil {
+				for _, metrics := range rollupStruct.(map[string]interface{})["Metrics"].([]interface{}) {
+					rollupConfig.Metrics = map[pm.PmSupportedEntities][]pm.RollupMetrics{}
+					if metrics.(map[string]interface{})[metricset].(interface{}) != nil {
+						for _, rollupMetric := range metrics.(map[string]interface{})[metricset].([]interface{}) {
+
+							var rollupMetrics []string
+							var rollupTypes []pm.RollupTypes
+							var entities []string
+							var instances []string
+
+							if rollupMetric.(map[string]interface{})["Metrics"] != nil {
+								for _, item := range rollupMetric.(map[string]interface{})["Metrics"].([]interface{}) {
+									rollupMetrics = append(rollupMetrics, item.(string))
+								}
+							}
+
+							if rollupMetric.(map[string]interface{})["RollupType"] != nil {
+								for _, item := range rollupMetric.(map[string]interface{})["RollupType"].([]interface{}) {
+									rollupTypes = append(rollupTypes, pm.RollupTypes(item.(string)))
+								}
+							}
+
+							if rollupMetric.(map[string]interface{})["Entities"] != nil {
+								for _, item := range rollupMetric.(map[string]interface{})["Entities"].([]interface{}) {
+									entities = append(entities, item.(string))
+								}
+							}
+
+							if rollupMetric.(map[string]interface{})["Instances"] != nil {
+								for _, item := range rollupMetric.(map[string]interface{})["Instances"].([]interface{}) {
+									instances = append(instances, item.(string))
+								}
+							}
+
+							metric := pm.RollupMetrics{
+								Metrics:    rollupMetrics,
+								RollupType: rollupTypes,
+								Instances:  instances,
+								Entities:   entities,
+								Interval:   time.Duration(rollupMetric.(map[string]interface{})["Interval"].(uint64)) * time.Second,
+							}
+							rollupConfig.Metrics[getObjectsType(metricset)] = append(rollupConfig.Metrics[getObjectsType(metricset)], metric)
+						}
+					}
+				}
+			}
+		}
+	}
+	return rollupConfig
 }

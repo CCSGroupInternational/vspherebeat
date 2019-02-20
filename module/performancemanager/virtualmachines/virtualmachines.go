@@ -29,6 +29,7 @@ type MetricSet struct {
 	Password string
 	Insecure bool
 	Counters []interface{}
+	Rollup   []interface{}
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
@@ -43,6 +44,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Password string                  `config:"password"`
 		Insecure bool                    `config:"insecure"`
 		Counters []interface{}           `config:"counters"`
+		Rollup   []interface{}           `config:"rollup"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -56,6 +58,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Password:      config.Password,
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
+		Rollup:        config.Rollup,
 	}, nil
 }
 
@@ -79,7 +82,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		}
 
-		vms := performancemanager.Fetch(m.Name(), m.Counters, &vspherePm)
+		vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, vm := range vms {
 			metadata := performancemanager.MetaData(vspherePm, vm)
