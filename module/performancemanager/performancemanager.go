@@ -4,20 +4,19 @@ import (
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/elastic/beats/libbeat/common"
 	"time"
-	"regexp"
 )
 
 func Connect(user string, pass string, host string, insecure bool, interval time.Duration, data map[string][]string) (pm.VspherePerfManager, error) {
 	vspherePm := pm.VspherePerfManager{
 		Config: pm.Config{
 			Vcenter: pm.Vcenter{
-				Username : user,
-				Password : pass,
-				Host     : host,
-				Insecure : insecure,
+				Username: user,
+				Password: pass,
+				Host:     host,
+				Insecure: insecure,
 			},
 			Interval: interval,
-			Data: data,
+			Data:     data,
 		},
 	}
 	err := vspherePm.Init()
@@ -34,7 +33,7 @@ func Fetch(metricset string, metrics []interface{}, rollup []interface{}, vspher
 	return vspherePm.Get(getObjectsType(metricset))
 }
 
-func MetricWithCustomInstance (metric pm.Metric, instance string) common.MapStr {
+func MetricWithCustomInstance(metric pm.Metric, instance string) common.MapStr {
 	return setMetric(metric, instance)
 }
 
@@ -52,8 +51,8 @@ func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.M
 	parentObjects := getParents(vspherePm, object)
 
 	metadata := common.MapStr{
-		"name"    : vspherePm.GetProperty(object, "name").(string),
-		"Vcenter" : findIP(vspherePm.Config.Vcenter.Host),
+		"name":    vspherePm.GetProperty(object, "name").(string),
+		"Vcenter": vspherePm.Config.Vcenter.Host,
 	}
 
 	if parentObjects != nil {
@@ -62,7 +61,7 @@ func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.M
 
 			for i, parent := range parents {
 				objectHierarchy += vspherePm.GetProperty(parent, "name").(string)
-				if i + 1 < len(parents) {
+				if i+1 < len(parents) {
 					objectHierarchy += "/"
 				}
 			}
@@ -71,7 +70,6 @@ func MetaData(vspherePm pm.VspherePerfManager, object pm.ManagedObject) common.M
 			metadata[objectType] = parent
 		}
 	}
-
 
 	return metadata
 }
@@ -123,15 +121,15 @@ func getParents(vspherePm pm.VspherePerfManager, object pm.ManagedObject) map[st
 
 func setMetric(metric pm.Metric, instance string) common.MapStr {
 	return common.MapStr{
-		"info" : common.MapStr{
-			"metric"    : metric.Info.Metric,
-			"statsType" : metric.Info.StatsType,
-			"unitInfo"  : metric.Info.UnitInfo,
+		"info": common.MapStr{
+			"metric":    metric.Info.Metric,
+			"statsType": metric.Info.StatsType,
+			"unitInfo":  metric.Info.UnitInfo,
 		},
 		"sample": common.MapStr{
-			"value"     : metric.Value.Value,
-			"instance"  : instance,
-			"timestamp" : metric.Value.Timestamp,
+			"value":     metric.Value.Value,
+			"instance":  instance,
+			"timestamp": metric.Value.Timestamp,
 		},
 	}
 }
@@ -194,14 +192,6 @@ func getObjectsType(metricset string) pm.PmSupportedEntities {
 
 	// TODO Fix this
 	return pm.VMs
-}
-
-func findIP(input string) string {
-	numBlock := "(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
-	regexPattern := numBlock + "\\." + numBlock + "\\." + numBlock + "\\." + numBlock
-
-	regEx := regexp.MustCompile(regexPattern)
-	return regEx.FindString(input)
 }
 
 func rollupFromConfig(rollup interface{}, metricset string) pm.Rollup {
