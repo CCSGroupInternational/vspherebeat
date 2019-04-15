@@ -84,7 +84,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		datastores := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+		vspherePm.Disconnect()
 		for _, datastore := range datastores {
 			metaData := performancemanager.MetaData(vspherePm, datastore)
 			metaData["url"] = vspherePm.GetProperty(datastore, "summary.url").(string)

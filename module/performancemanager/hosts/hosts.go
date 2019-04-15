@@ -7,6 +7,7 @@ import (
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
+	"fmt"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -66,7 +67,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
-
+	fmt.Println("Hosts => " + time.Now().String())
 	data := map[string][]string{
 		string(pm.Hosts)           : {"parent"},
 		string(pm.Clusters)        : {"parent"},
@@ -84,7 +85,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		hosts := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+		vspherePm.Disconnect()
+		fmt.Println("Hosts => FIM VCENTER Connection: " + time.Now().String())
 		for _, host := range hosts {
 			metadata := performancemanager.MetaData(vspherePm, host)
 			for _, metric := range host.Metrics {
@@ -98,4 +100,5 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 	}
+	fmt.Println("Hosts => FIM: " + time.Now().String())
 }

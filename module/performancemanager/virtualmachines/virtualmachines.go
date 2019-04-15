@@ -1,6 +1,7 @@
 package virtualmachines
 
 import (
+	"fmt"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	 pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
@@ -66,7 +67,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
-
+	fmt.Println("VMS => " + time.Now().String())
 	data := map[string][]string{
 		string(pm.VMs):      {"runtime.host", "parent"},
 		string(pm.Hosts):    {"parent"},
@@ -84,7 +85,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+		vspherePm.Disconnect()
+		fmt.Println("VMS => FIM VCENTER Connection: " + time.Now().String())
 		for _, vm := range vms {
 			metadata := performancemanager.MetaData(vspherePm, vm)
 			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
@@ -106,4 +108,5 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		}
 	}
+	fmt.Println("VMS => FIM: " + time.Now().String())
 }

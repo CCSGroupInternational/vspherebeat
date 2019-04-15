@@ -83,7 +83,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		vapps := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+		vspherePm.Disconnect()
 		for _, vapp := range vapps {
 			metadata := performancemanager.MetaData(vspherePm, vapp)
 			for _, metric := range vapp.Metrics {

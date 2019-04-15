@@ -81,7 +81,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		clusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+		vspherePm.Disconnect()
 		for _, cluster := range clusters {
 			metaData := performancemanager.MetaData(vspherePm, cluster)
 			for _, metric := range cluster.Metrics {
