@@ -72,6 +72,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Hosts):    {"parent"},
 		string(pm.Clusters): {"parent"},
 		string(pm.Folders):  {"parent"},
+		string(pm.ComputeResources): {"parent"},
 		string(pm.Datacenters): {},
 	}
 
