@@ -78,13 +78,18 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	for _, host := range  m.Hosts {
 		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, data)
 
-		if err == nil {
-
+		if err != nil {
+			m.Logger().Panic(err)
+			return
 		}
 
 		vapps := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-		vspherePm.Disconnect()
+
 		for _, vapp := range vapps {
+			if vapp.Error != nil {
+				m.Logger().Error(vapp.Entity.String() + " => ",  vapp.Error)
+				continue
+			}
 			metadata := performancemanager.MetaData(vspherePm, vapp)
 			for _, metric := range vapp.Metrics {
 				report.Event(mb.Event{

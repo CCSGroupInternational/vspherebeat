@@ -1,13 +1,13 @@
 package datastores
 
 import (
+	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
-	"time"
-	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"strconv"
-	"github.com/elastic/beats/libbeat/common"
-	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"time"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -79,13 +79,18 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	for _, host := range  m.Hosts {
 		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, data)
 
-		if err == nil {
-
+		if err != nil {
+			m.Logger().Panic(err)
+			return
 		}
 
 		datastores := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-		vspherePm.Disconnect()
+
 		for _, datastore := range datastores {
+			if datastore.Error != nil {
+				m.Logger().Error(datastore.Entity.String() + " => ",  datastore.Error)
+				continue
+			}
 			metaData := performancemanager.MetaData(vspherePm, datastore)
 			metaData["url"] = vspherePm.GetProperty(datastore, "summary.url").(string)
 			for _, metric := range datastore.Metrics {
