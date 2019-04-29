@@ -6,6 +6,7 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
+	"github.com/vmware/govmomi/vim25/types"
 	"time"
 )
 
@@ -67,12 +68,17 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
-		string(pm.VMs):      {"runtime.host", "parent"},
+		string(pm.VMs):      {
+			"runtime.host", "parent", "summary.config.memorySizeMB", "summary.config.guestFullName","summary.config.numCpu",
+			/*"runtime.maxCpuUsage",*/ "summary.config.numVirtualDisks", "summary.storage.committed", "summary.storage.uncommitted",
+			"summary.storage.unshared", "datastore",
+		},
 		string(pm.Hosts):    {"parent"},
 		string(pm.Clusters): {"parent"},
 		string(pm.Folders):  {"parent"},
 		string(pm.ComputeResources): {"parent"},
 		string(pm.Datacenters): {},
+		string(pm.Datastores):  {},
 	}
 
 	for _, host := range  m.Hosts {
@@ -84,7 +90,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
 
 		for _, vm := range vms {
 			if vm.Error != nil {
@@ -100,6 +105,31 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			for k, v := range metadataHost {
 				metadata[k] = v
 			}
+			// Provisioned Values
+			metadata["Ram"] = common.MapStr{
+				"MemorySizeMB": vspherePm.GetProperty(vm, "summary.config.memorySizeMB").(int32),
+			}
+			metadata["Cpu"] = common.MapStr{
+				"NumCpu"      : vspherePm.GetProperty(vm, "summary.config.numCpu").(int32),
+				//"MaxCpuUsage" : vspherePm.GetProperty(vm, "runtime.maxCpuUsage").(int32),
+			}
+			metadata["GuestFullName"] = vspherePm.GetProperty(vm, "summary.config.guestFullName").(string)
+			metadata["Disks"] = common.MapStr{
+				"NumVirtualDisks" : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
+				"Committed"       : vspherePm.GetProperty(vm, "summary.storage.committed").(int64),
+				"Uncommitted"     : vspherePm.GetProperty(vm, "summary.storage.uncommitted").(int64),
+				"Unshared"        : vspherePm.GetProperty(vm, "summary.storage.unshared").(int64),
+			}
+
+
+			datastoresReferences := vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference)
+			var datastores []string
+			for _, datastore := range datastoresReferences.ManagedObjectReference {
+				datastores =  append(datastores, vspherePm.GetProperty(vspherePm.Objects[string(pm.Datastores)][datastore.Value], "name").(string))
+			}
+
+			metadata["Datastores"] = datastores
+
 			for _, metric := range vm.Metrics {
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{
