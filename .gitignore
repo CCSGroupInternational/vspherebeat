@@ -8,3 +8,6 @@ vspherebeat
 # Config Files
 modules.d/performancemanager.yml
 beat.yml
+
+# Data Dir
+data/meta.json
