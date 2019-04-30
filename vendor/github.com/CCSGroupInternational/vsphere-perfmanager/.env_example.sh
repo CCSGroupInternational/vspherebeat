@@ -1,0 +1,5 @@
+#!/bin/sh
+export VSPHERE_HOST=
+export VSPHERE_USER=
+export VSPHERE_PASSWORD=
+export VSPHERE_INSECURE=
