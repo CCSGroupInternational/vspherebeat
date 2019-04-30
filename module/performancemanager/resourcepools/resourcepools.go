@@ -1,12 +1,12 @@
 package resourcepools
 
 import (
+	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
+	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
+	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"time"
-	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
-	"github.com/elastic/beats/libbeat/common"
-	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 )
 
 // init registers the MetricSet with the central registry as soon as the program
@@ -68,11 +68,12 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	data := map[string][]string{
-		string(pm.ResourcePools) : {"parent"},
-		string(pm.Clusters)      : {"parent"},
-		string(pm.Folders)       : {"parent"},
-		string(pm.Datacenters)   : {},
-		string(pm.Vapps)         : {"parent"},
+		string(pm.ResourcePools)    : {"parent"},
+		string(pm.Clusters)         : {"parent"},
+		string(pm.Folders)          : {"parent"},
+		string(pm.Datacenters)      : {},
+		string(pm.Vapps)            : {"parent"},
+		string(pm.ComputeResources) : {"name", "parent"},
 	}
 
 	for _, host := range  m.Hosts {
