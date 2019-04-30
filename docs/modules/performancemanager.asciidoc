@@ -40,6 +40,8 @@ The following metricsets are available:
 
 * <<metricbeat-metricset-performancemanager-datastores,datastores>>
 
+* <<metricbeat-metricset-performancemanager-datastoresclusters,datastoresclusters>>
+
 * <<metricbeat-metricset-performancemanager-hosts,hosts>>
 
 * <<metricbeat-metricset-performancemanager-resourcepools,resourcepools>>
@@ -53,6 +55,8 @@ include::performancemanager/clusters.asciidoc[]
 include::performancemanager/datacenters.asciidoc[]
 
 include::performancemanager/datastores.asciidoc[]
+
+include::performancemanager/datastoresclusters.asciidoc[]
 
 include::performancemanager/hosts.asciidoc[]
 

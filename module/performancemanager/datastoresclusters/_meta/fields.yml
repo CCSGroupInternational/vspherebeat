@@ -1,0 +1,9 @@
+- name: datastoresclusters
+  type: group
+  description: >
+    datastoresclusters
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field

@@ -1,6 +1,7 @@
 # Directories
 build
 .idea
+deploy
 
 # Binary
 vspherebeat

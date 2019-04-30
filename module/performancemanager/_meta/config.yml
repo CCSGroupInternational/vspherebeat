@@ -1,5 +1,5 @@
 - module: performancemanager
-  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps"]
+  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters"]
   enabled: false
   period: 20s
   hosts: ["localhost"]

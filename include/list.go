@@ -30,6 +30,7 @@ import (
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/clusters"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/datacenters"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/datastores"
+	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/datastoresclusters"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/hosts"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/resourcepools"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/vapps"
