@@ -35,4 +35,5 @@ import (
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/resourcepools"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/vapps"
 	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/virtualmachines"
+	_ "github.com/CCSGroupInternational/vspherebeat/module/performancemanager/virtualswitches"
 )

@@ -49,7 +49,7 @@ vspherebeat.modules:
 
 #------------------------- performancemanager Module -------------------------
 - module: performancemanager
-  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps"]
+  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters", "virtualswitches"]
   enabled: false
   period: 20s
   hosts: ["localhost"]

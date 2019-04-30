@@ -190,6 +190,8 @@ func getObjectsType(metricset string) pm.PmSupportedEntities {
 		return pm.Vapps
 	case "datastoresclusters":
 		return pm.DatastoreClusters
+	case "virtualswitches":
+		return pm.VirtualSwitches
 	}
 
 	// TODO Fix this

@@ -1,0 +1,9 @@
+- name: virtualswitches
+  type: group
+  description: >
+    virtualswitches
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field
