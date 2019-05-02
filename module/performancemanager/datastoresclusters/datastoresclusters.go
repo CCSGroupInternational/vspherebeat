@@ -67,8 +67,6 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
-		//string(pm.Datastores):        {"summary.url", "parent"},
-		//string(pm.VMs):               {},
 		string(pm.DatastoreClusters): {"parent"},
 		string(pm.Folders):           {"parent"},
 		string(pm.Datacenters):       {},

@@ -121,13 +121,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				"Unshared"        : vspherePm.GetProperty(vm, "summary.storage.unshared").(int64),
 			}
 
-
 			datastoresReferences := vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference)
 			var datastores []string
 			for _, datastore := range datastoresReferences.ManagedObjectReference {
-				datastores =  append(datastores, vspherePm.GetProperty(vspherePm.Objects[string(pm.Datastores)][datastore.Value], "name").(string))
+				datastores =  append(datastores, vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string))
 			}
-
 			metadata["Datastores"] = datastores
 
 			for _, metric := range vm.Metrics {
