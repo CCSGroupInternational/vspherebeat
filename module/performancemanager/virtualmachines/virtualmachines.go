@@ -133,25 +133,21 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				}
 			}
 
-			var instance string
 			for _, metric := range vm.Metrics {
-
-				if strings.Contains(metric.Info.Metric, "disk.") && strings.Contains(metric.Value.Instance , "naa.") {
-					instance = vmfs[metric.Value.Instance]
-					if len(instance) == 0 {
-						instance = metric.Value.Instance
-					}
-				} else if strings.Contains(metric.Info.Metric, "datastore.") {
-					instance = datastores[metric.Value.Instance]
-					if len(instance) == 0 {
-						instance = metric.Value.Instance
+				instance := metric.Value.Instance
+				if len(instance) > 0 {
+					if strings.Contains(metric.Info.Metric, "disk.") &&
+						strings.Contains(instance , "naa.") {
+						if val, ok := vmfs[instance]; ok {
+							instance = val
+						}
+					} else if strings.Contains(metric.Info.Metric, "datastore.") {
+						if val, ok := datastores[instance]; ok {
+							instance = val
+						}
 					}
 				} else {
-					if len(metric.Value.Instance) == 0 {
-						instance = "*"
-					} else {
-						instance = metric.Value.Instance
-					}
+					instance = "*"
 				}
 
 				report.Event(mb.Event{
