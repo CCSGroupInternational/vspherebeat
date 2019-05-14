@@ -6,6 +6,8 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
+	"github.com/vmware/govmomi/vim25/types"
+	"strings"
 	"time"
 )
 
@@ -67,11 +69,12 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
-		string(pm.Hosts)           : {"parent"},
+		string(pm.Hosts)           : {"parent", "datastore"},
 		string(pm.Clusters)        : {"parent"},
 		string(pm.Folders)         : {"parent"},
 		string(pm.ComputeResources): {"parent"},
 		string(pm.Datacenters)     : {},
+		string(pm.Datastores)      : {"summary.url", "info"},
 	}
 
 	for _, host := range  m.Hosts {
@@ -91,14 +94,43 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, host)
+
+			vmfs := make(map[string]string)
+			datastores := make(map[string]string)
+			for _, datastore := range vspherePm.GetProperty(host, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
+				datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
+				datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
+				datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
+				for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
+					vmfs[vmfsInfo.DiskName] = datastoreName
+				}
+			}
+
 			for _, metric := range host.Metrics {
+				instance := metric.Value.Instance
+				if len(instance) > 0 {
+					if strings.Contains(metric.Info.Metric, "disk.") &&
+						strings.Contains(instance , "naa.") {
+						if val, ok := vmfs[instance]; ok {
+							instance = val
+						}
+					} else if strings.Contains(metric.Info.Metric, "datastore.") {
+						if val, ok := datastores[instance]; ok {
+							instance = val
+						}
+					}
+				} else {
+					instance = "*"
+				}
+
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{
-						"metaData": metadata,
-						"metric" : performancemanager.Metric(metric),
+						"metaData" : metadata,
+						"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
 					},
 				})
 			}
+
 		}
 
 	}
