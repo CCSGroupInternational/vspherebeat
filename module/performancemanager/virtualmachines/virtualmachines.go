@@ -7,6 +7,7 @@ import (
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"github.com/vmware/govmomi/vim25/types"
+	"strings"
 	"time"
 )
 
@@ -78,7 +79,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Folders):  {"parent"},
 		string(pm.ComputeResources): {"parent"},
 		string(pm.Datacenters): {},
-		string(pm.Datastores):  {},
+		string(pm.Datastores):  {"info"},
 	}
 
 	for _, host := range  m.Hosts {
@@ -121,18 +122,28 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				"Unshared"        : vspherePm.GetProperty(vm, "summary.storage.unshared").(int64),
 			}
 
-			datastoresReferences := vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference)
-			var datastores []string
-			for _, datastore := range datastoresReferences.ManagedObjectReference {
-				datastores =  append(datastores, vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string))
+			vmfs := make(map[string]string)
+			for _, datastore := range vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
+				datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
+				for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
+					vmfs[vmfsInfo.DiskName] = datastoreName
+				}
 			}
-			metadata["Datastores"] = datastores
+
+			var eventMetric common.MapStr
 
 			for _, metric := range vm.Metrics {
+
+				if strings.Contains(metric.Info.Metric, "disk") && strings.Contains(metric.Value.Instance , "naa.") {
+					eventMetric = performancemanager.MetricWithCustomInstance(metric, vmfs[metric.Value.Instance])
+				} else {
+					eventMetric = performancemanager.Metric(metric)
+				}
+
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{
 						"metaData": metadata,
-						"metric" : performancemanager.Metric(metric),
+						"metric" : eventMetric,
 					},
 				})
 			}
