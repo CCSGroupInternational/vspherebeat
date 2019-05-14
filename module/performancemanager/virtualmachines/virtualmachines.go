@@ -79,7 +79,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Folders):  {"parent"},
 		string(pm.ComputeResources): {"parent"},
 		string(pm.Datacenters): {},
-		string(pm.Datastores):  {"info"},
+		string(pm.Datastores):  {"info", "summary.url"},
 	}
 
 	for _, host := range  m.Hosts {
@@ -123,27 +123,41 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			}
 
 			vmfs := make(map[string]string)
+			datastores := make(map[string]string)
 			for _, datastore := range vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
 				datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
+				datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
+				datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
 				for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
 					vmfs[vmfsInfo.DiskName] = datastoreName
 				}
 			}
 
-			var eventMetric common.MapStr
-
+			var instance string
 			for _, metric := range vm.Metrics {
 
-				if strings.Contains(metric.Info.Metric, "disk") && strings.Contains(metric.Value.Instance , "naa.") {
-					eventMetric = performancemanager.MetricWithCustomInstance(metric, vmfs[metric.Value.Instance])
+				if strings.Contains(metric.Info.Metric, "disk.") && strings.Contains(metric.Value.Instance , "naa.") {
+					instance = vmfs[metric.Value.Instance]
+					if len(instance) == 0 {
+						instance = metric.Value.Instance
+					}
+				} else if strings.Contains(metric.Info.Metric, "datastore.") {
+					instance = datastores[metric.Value.Instance]
+					if len(instance) == 0 {
+						instance = metric.Value.Instance
+					}
 				} else {
-					eventMetric = performancemanager.Metric(metric)
+					if len(metric.Value.Instance) == 0 {
+						instance = "*"
+					} else {
+						instance = metric.Value.Instance
+					}
 				}
 
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{
-						"metaData": metadata,
-						"metric" : eventMetric,
+						"metaData" : metadata,
+						"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
 					},
 				})
 			}
