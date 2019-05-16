@@ -32,6 +32,19 @@
           type: keyword
           description: >
             Datastore URL
+        - name: Storage
+          type: group
+          description: >
+            Datastore URL
+          fields:
+            - name: Capacity
+              type: integer
+              description: >
+                Maximum capacity of this datastore, in bytes. This value is updated periodically by the server. It can be explicitly refreshed with the Refresh operation
+            - name: MaxVirtualDiskCapacity
+              type: integer
+              description: >
+                The maximum capacity of a virtual disk which can be created on this volume
     - name: metric
       type: group
       description: >

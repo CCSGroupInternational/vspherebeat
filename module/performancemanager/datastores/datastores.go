@@ -69,7 +69,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	data := map[string][]string{
-		string(pm.Datastores):        {"summary.url", "parent"},
+		string(pm.Datastores):        {"summary.url", "parent", "info.maxVirtualDiskCapacity", "summary.capacity"},
 		string(pm.VMs):               {},
 		string(pm.DatastoreClusters): {"parent"},
 		string(pm.Folders):           {"parent"},
@@ -93,6 +93,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			}
 			metaData := performancemanager.MetaData(vspherePm, datastore)
 			metaData["url"] = vspherePm.GetProperty(datastore, "summary.url").(string)
+			// Provisioned Values
+			metaData["Storage"] = common.MapStr{
+				"Capacity"              : vspherePm.GetProperty(datastore, "summary.capacity"),
+				"MaxVirtualDiskCapacity": vspherePm.GetProperty(datastore, "info.maxVirtualDiskCapacity"),
+			}
 			for _, metric := range datastore.Metrics {
 				var instance string
 				if len(metric.Value.Instance) != 0 {
