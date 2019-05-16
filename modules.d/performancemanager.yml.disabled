@@ -5,6 +5,7 @@
   metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters"]
   enabled: false
   period: 20s
+  maxQueries: 64
   hosts: ["localhost"]
   username: "username"
   password: "password"

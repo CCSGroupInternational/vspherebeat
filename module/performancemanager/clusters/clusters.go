@@ -23,13 +23,14 @@ func init() {
 // interface methods except for Fetch.
 type MetricSet struct {
 	mb.BaseMetricSet
-	Period   time.Duration
-	Hosts    []string
-	Username string
-	Password string
-	Insecure bool
-	Counters []interface{}
-	Rollup   []interface{}
+	Period     time.Duration
+	Hosts      []string
+	Username   string
+	Password   string
+	Insecure   bool
+	Counters   []interface{}
+	Rollup     []interface{}
+	MaxQueries int
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
@@ -38,13 +39,14 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 	cfgwarn.Experimental("The performancemanager clusters metricset is experimental.")
 
 	config := struct{
-		Period   time.Duration           `config:"period"`
-		Hosts    []string                `config:"hosts"`
-		Username string                  `config:"username"`
-		Password string                  `config:"password"`
-		Insecure bool                    `config:"insecure"`
-		Counters []interface{}           `config:"counters"`
-		Rollup   []interface{}           `config:"rollup"`
+		Period     time.Duration `config:"period"`
+		Hosts      []string      `config:"hosts"`
+		Username   string        `config:"username"`
+		Password   string        `config:"password"`
+		Insecure   bool          `config:"insecure"`
+		Counters   []interface{} `config:"counters"`
+		Rollup     []interface{} `config:"rollup"`
+		MaxQueries int           `config:"maxQueries"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -59,6 +61,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
 		Rollup:        config.Rollup,
+		MaxQueries:    config.MaxQueries,
 	}, nil
 }
 
@@ -74,7 +77,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	}
 
 	for _, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, data)
+		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, m.MaxQueries, data)
 
 		if err != nil {
 			m.Logger().Panic(err)
