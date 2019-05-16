@@ -67,7 +67,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
-		string(pm.DatastoreClusters): {"parent"},
+		string(pm.DatastoreClusters): {"parent", "summary.capacity"},
 		string(pm.Folders):           {"parent"},
 		string(pm.Datacenters):       {},
 	}
@@ -88,6 +88,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, datastoreCluster)
+			// Provisioned Values
+			metadata["Storage"] = common.MapStr{
+				"Capacity": vspherePm.GetProperty(datastoreCluster, "summary.capacity"),
+			}
 			for _, metric := range datastoreCluster.Metrics {
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{

@@ -24,6 +24,15 @@
           type: keyword
           description: >
             DataStores Cluster Datacenter
+        - name: Storage
+          type: group
+          description: >
+            Storage Metadata
+          fields:
+            - name: Capacity
+              type: integer
+              description: >
+                Total capacity of this storage pod, in bytes. This value is the sum of the capacity of all datastores that are part of this storage pod, and is updated periodically by the server.
     - name: metric
       type: group
       description: >
