@@ -71,8 +71,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
 		string(pm.VMs):      {
 			"runtime.host", "parent", "summary.config.memorySizeMB", "summary.config.guestFullName","summary.config.numCpu",
-			/*"runtime.maxCpuUsage",*/ "summary.config.numVirtualDisks", "summary.storage.committed", "summary.storage.uncommitted",
-			"summary.storage.unshared", "datastore",
+			"summary.config.numVirtualDisks", "datastore", "config.hardware.device",
 		},
 		string(pm.Hosts):    {"parent"},
 		string(pm.Clusters): {"parent"},
@@ -112,15 +111,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			}
 			metadata["Cpu"] = common.MapStr{
 				"NumCpu"      : vspherePm.GetProperty(vm, "summary.config.numCpu").(int32),
-				//"MaxCpuUsage" : vspherePm.GetProperty(vm, "runtime.maxCpuUsage").(int32),
 			}
 			metadata["GuestFullName"] = vspherePm.GetProperty(vm, "summary.config.guestFullName").(string)
-			metadata["Disks"] = common.MapStr{
-				"NumVirtualDisks" : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
-				"Committed"       : vspherePm.GetProperty(vm, "summary.storage.committed").(int64),
-				"Uncommitted"     : vspherePm.GetProperty(vm, "summary.storage.uncommitted").(int64),
-				"Unshared"        : vspherePm.GetProperty(vm, "summary.storage.unshared").(int64),
-			}
 
 			vmfs := make(map[string]string)
 			datastores := make(map[string]string)
@@ -132,6 +124,28 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					vmfs[vmfsInfo.DiskName] = datastoreName
 				}
 			}
+
+			var devices []map[string]interface{}
+			var totalCapacityInBytes int64
+			for _, device := range vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice {
+				switch device.(type) {
+				case *types.VirtualDisk:
+					devices = append(devices, map[string]interface{}{
+						"CapacityInBytes": device.(*types.VirtualDisk).CapacityInBytes,
+						"Name" : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
+					})
+					totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
+				}
+			}
+
+			metadata["Disks"] = common.MapStr{
+				"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
+				"TotalCapacityInBytes" : totalCapacityInBytes,
+			}
+
+			metadata["Devices"] = make(map[string][]map[string]interface{})
+			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = make([]map[string]interface{}, len(devices))
+			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = devices
 
 			for _, metric := range vm.Metrics {
 				instance := metric.Value.Instance

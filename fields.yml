@@ -2897,6 +2897,60 @@
                   type: keyword
                   description: >
                     Cluster Datacenter
+                - name: Ram
+                  type: group
+                  description: >
+                      Ram Metadata
+                  fields:
+                    - name: MemorySizeMB
+                      type: integer
+                      description: >
+                        Virtual Machine Memory in Megabytes
+                - name: Cpu
+                  type: group
+                  description: >
+                    CPU Metadata
+                  fields:
+                    - name: NumCpu
+                      type: integer
+                      description: >
+                        Virtual Machine Number of CPUS
+                - name: GuestFullName
+                  type: keyword
+                  description: >
+                    Virtual Machine Operative System
+                - name: Disks
+                  type: group
+                  description: >
+                    Disk Metadata
+                  fields:
+                    - name: NumVirtualDisks
+                      type: integer
+                      description: >
+                        Virtual Machine Number of Virtual Disks
+                    - name: TotalCapacityInBytes
+                      type: integer
+                      description: >
+                        Virtual Machine Total of disk in bytes
+
+                - name: Devices
+                  type: group
+                  description: >
+                    Virtual Devices From VM
+                  fields:
+                    - name: VirtualDisks
+                      type: group
+                      description: >
+                        Virtual Disks from VM
+                      fields:
+                        - name: CapacityInBytes
+                          type: integer
+                          description: >
+                            Virtual Disk Capacity
+                        - name: Name
+                          type: keyword
+                          description: >
+                            Virtual Disk Name
             - name: metric
               type: group
               description: >
