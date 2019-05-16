@@ -68,7 +68,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	data := map[string][]string{
-		string(pm.ResourcePools)    : {"parent"},
+		string(pm.ResourcePools)    : {"parent", "summary.configuredMemoryMB"},
 		string(pm.Clusters)         : {"parent"},
 		string(pm.Folders)          : {"parent"},
 		string(pm.Datacenters)      : {},
@@ -92,6 +92,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, resourcePool)
+			metadata["Ram"] = common.MapStr{
+				"ConfiguredMemoryMB": vspherePm.GetProperty(resourcePool, "summary.configuredMemoryMB"),
+			}
+
 			for _, metric := range resourcePool.Metrics {
 				report.Event(mb.Event{
 					MetricSetFields: common.MapStr{

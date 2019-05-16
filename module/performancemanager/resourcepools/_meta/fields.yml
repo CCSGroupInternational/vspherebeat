@@ -36,6 +36,15 @@
           type: keyword
           description: >
             Parent VirtualApp
+        - name: Ram
+          type: group
+          description: >
+            Resource Pool Ram
+          fields:
+            - name: ConfiguredMemoryMB
+              type: integer
+              description: >
+                Total configured memory of all virtual machines in the resource pool, in MB.
     - name: metric
       type: group
       description: >
