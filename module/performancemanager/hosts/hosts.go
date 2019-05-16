@@ -69,7 +69,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
-		string(pm.Hosts)           : {"parent", "datastore"},
+		string(pm.Hosts)           : {"parent", "datastore", "hardware.cpuInfo.numCpuCores", "hardware.cpuInfo.numCpuThreads", "hardware.cpuInfo.hz" , "hardware.memorySize", "runtime.hostMaxVirtualDiskCapacity", "hardware.systemInfo.vendor"},
 		string(pm.Clusters)        : {"parent"},
 		string(pm.Folders)         : {"parent"},
 		string(pm.ComputeResources): {"parent"},
@@ -94,6 +94,22 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, host)
+
+			// Provisioned Values
+			metadata["Ram"] = common.MapStr{
+				"MemorySize": vspherePm.GetProperty(host, "hardware.memorySize"),
+			}
+			metadata["Cpu"] = common.MapStr{
+				"NumCpuCores"   : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuCores"),
+				"NumCpuThreads" : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuThreads"),
+				"Hz"            : vspherePm.GetProperty(host, "hardware.cpuInfo.hz"),
+			}
+			metadata["SystemInfo"] = common.MapStr{
+				"Vendor": vspherePm.GetProperty(host, "hardware.systemInfo.vendor"),
+			}
+			metadata["VirtualDisks"] = common.MapStr{
+				"HostMaxVirtualDiskCapacity": vspherePm.GetProperty(host, "runtime.hostMaxVirtualDiskCapacity"),
+			}
 
 			vmfs := make(map[string]string)
 			datastores := make(map[string]string)

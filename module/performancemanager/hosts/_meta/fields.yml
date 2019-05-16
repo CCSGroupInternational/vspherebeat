@@ -28,6 +28,50 @@
           type: keyword
           description: >
             Cluster
+        - name: Ram
+          type: group
+          description: >
+            Ram Metadata
+          fields:
+            - name: MemorySize
+              type: integer
+              description: >
+                Host Memory in Bytes
+        - name: Cpu
+          type: group
+          description: >
+            CPU Metadata
+          fields:
+            - name: NumCpuCores
+              type: integer
+              description: >
+                Number of physical CPU cores on the host
+            - name: NumCpuThreads
+              type: integer
+              description: >
+                Number of physical CPU threads on the host
+            - name: Hz
+              type: integer
+              description: >
+                CPU speed per core. This might be an averaged value if the speed is not uniform across all cores. The total CPU speed of the box is defined as hz * numCpuCores
+        - name: SystemInfo
+          type: group
+          description: >
+            Host SystemInfo
+          fields:
+            - name: Vendor
+              type: keyword
+              description: >
+                Hardware vendor identification
+        - name: VirtualDisks
+          type: group
+          description: >
+            Host SystemInfo
+          fields:
+            - name: HostMaxVirtualDiskCapacity
+              type: integer
+              description: >
+                The maximum theoretical virtual disk capacity supported by this host
     - name: metric
       type: group
       description: >
