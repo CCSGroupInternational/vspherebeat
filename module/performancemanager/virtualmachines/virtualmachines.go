@@ -1,13 +1,16 @@
 package virtualmachines
 
 import (
+	"fmt"
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/types"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -132,15 +135,26 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 			var devices []map[string]interface{}
 			var totalCapacityInBytes int64
+			controllersToDisk := make(map[string]string)
+			vmDevices := object.VirtualDeviceList(vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice)
+
 			for _, device := range vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice {
 				switch device.(type) {
 				case *types.VirtualDisk:
+
 					devices = append(devices, map[string]interface{}{
 						"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
 						"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
 						"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
+						//"SCSIController"  : fmt.Sprintf("scsi%d:%d", scsi.(types.BaseVirtualSCSIController).GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber),
 					})
 					totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
+
+					if scsi, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(types.BaseVirtualSCSIController); ok {
+						controllersToDisk[fmt.Sprintf("scsi%d:%d", scsi.GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+					} else if ide, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(*types.VirtualIDEController); ok {
+						controllersToDisk[fmt.Sprintf("ide%d:%d", ide.UnitNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+					}
 				}
 			}
 
@@ -156,13 +170,17 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			for _, metric := range vm.Metrics {
 				instance := metric.Value.Instance
 				if len(instance) > 0 {
-					if strings.Contains(metric.Info.Metric, "disk.") &&
-						strings.Contains(instance , "naa.") {
+					if regexp.MustCompile(`^disk\.`).Match([]byte(metric.Info.Metric)) &&
+						regexp.MustCompile(`^naa\.`).Match([]byte(instance)) {
 						if val, ok := vmfs[instance]; ok {
 							instance = val
 						}
-					} else if strings.Contains(metric.Info.Metric, "datastore.") {
+					} else if regexp.MustCompile(`^datastore\.`).Match([]byte(metric.Info.Metric)) {
 						if val, ok := datastores[instance]; ok {
+							instance = val
+						}
+					} else if regexp.MustCompile(`^virtualDisk\.`).Match([]byte(metric.Info.Metric)) {
+						if val, ok := controllersToDisk[instance]; ok {
 							instance = val
 						}
 					}
