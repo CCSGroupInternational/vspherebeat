@@ -32,7 +32,7 @@ type MetricSet struct {
 	Insecure   bool
 	Counters   []interface{}
 	Rollup     []interface{}
-	MaxQueries int
+	MaxMetrics int
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
@@ -48,7 +48,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Insecure   bool          `config:"insecure"`
 		Counters   []interface{} `config:"counters"`
 		Rollup     []interface{} `config:"rollup"`
-		MaxQueries int           `config:"maxQueries"`
+		MaxMetrics int           `config:"maxMetrics"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
 		Rollup:        config.Rollup,
-		MaxQueries:    config.MaxQueries,
+		MaxMetrics:    config.MaxMetrics,
 	}, nil
 }
 
@@ -82,7 +82,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 	for _, host := range  m.Hosts {
 
-		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, m.MaxQueries, data)
+		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, m.MaxMetrics, data)
 		if err != nil {
 			m.Logger().Panic(err)
 			return

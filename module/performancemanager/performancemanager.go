@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func Connect(user string, pass string, host string, insecure bool, interval time.Duration, maxQueries int, data map[string][]string) (pm.VspherePerfManager, error) {
+func Connect(user string, pass string, host string, insecure bool, interval time.Duration, maxMetrics int, data map[string][]string) (pm.VspherePerfManager, error) {
 	vspherePm := pm.VspherePerfManager{
 		Config: pm.Config{
 			Vcenter: pm.Vcenter{
@@ -17,7 +17,7 @@ func Connect(user string, pass string, host string, insecure bool, interval time
 			},
 			Interval:   interval,
 			Data:       data,
-			MaxQueries: maxQueries,
+			MaxMetrics: maxMetrics,
 		},
 	}
 	err := vspherePm.Init()
