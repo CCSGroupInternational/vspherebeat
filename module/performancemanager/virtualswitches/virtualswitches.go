@@ -4,7 +4,6 @@ import (
 	pm "github.com/CCSGroupInternational/vsphere-perfmanager/vspherePerfManager"
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
-	"github.com/elastic/beats/libbeat/common/cfgwarn"
 	"github.com/elastic/beats/metricbeat/mb"
 	"strings"
 	"time"
@@ -37,8 +36,6 @@ type MetricSet struct {
 // New creates a new instance of the MetricSet. New is responsible for unpacking
 // any MetricSet specific configuration options if there are any.
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
-	cfgwarn.Experimental("The performancemanager virtualswitches metricset is experimental.")
-
 	config := struct{
 		Period     time.Duration `config:"period"`
 		Hosts      []string      `config:"hosts"`
