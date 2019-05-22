@@ -77,6 +77,10 @@
                   type: keyword
                   description: >
                     Virtual Disk Name
+                - name: Datastore
+                  type: keyword
+                  description: >
+                    Virtual Disk Datastore
     - name: metric
       type: group
       description: >
