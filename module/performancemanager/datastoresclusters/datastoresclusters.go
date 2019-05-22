@@ -87,7 +87,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		for _, datastoreCluster := range datastoresClusters {
 			if datastoreCluster.Error != nil {
-				m.Logger().Error(datastoreCluster.Entity.String() + " => ",  datastoreCluster.Error)
+				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + datastoreCluster.Entity.String() + " => ",  datastoreCluster.Error)
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, datastoreCluster)

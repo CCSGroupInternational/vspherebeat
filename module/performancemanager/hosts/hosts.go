@@ -92,7 +92,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		for _, host := range hosts {
 			if host.Error != nil {
-				m.Logger().Error(host.Entity.String() + " => ",  host.Error)
+				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + host.Entity.String() + " => ",  host.Error)
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, host)

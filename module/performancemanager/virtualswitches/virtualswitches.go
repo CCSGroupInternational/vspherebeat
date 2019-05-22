@@ -89,7 +89,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		for _, virtualSwitch := range virtualSwitches {
 			if virtualSwitch.Error != nil {
-				m.Logger().Error(virtualSwitch.Entity.String() + " => ",  virtualSwitch.Error)
+				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + virtualSwitch.Entity.String() + " => ",  virtualSwitch.Error)
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, virtualSwitch)

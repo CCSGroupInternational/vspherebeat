@@ -91,7 +91,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		for _, resourcePool := range resourcePools {
 			if resourcePool.Error != nil {
-				m.Logger().Error(resourcePool.Entity.String() + " => ",  resourcePool.Error)
+				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + resourcePool.Entity.String() + " => ",  resourcePool.Error)
 				continue
 			}
 			metadata := performancemanager.MetaData(vspherePm, resourcePool)
