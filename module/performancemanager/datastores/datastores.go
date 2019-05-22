@@ -26,8 +26,8 @@ type MetricSet struct {
 	mb.BaseMetricSet
 	Period     time.Duration
 	Hosts      []string
-	Username   string
-	Password   string
+	Usernames  []string
+	Passwords  []string
 	Insecure   bool
 	Counters   []interface{}
 	Rollup     []interface{}
@@ -42,8 +42,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 	config := struct{
 		Period     time.Duration `config:"period"`
 		Hosts      []string      `config:"hosts"`
-		Username   string        `config:"username"`
-		Password   string        `config:"password"`
+		Usernames  []string      `config:"usernames"`
+		Passwords  []string      `config:"passwords"`
 		Insecure   bool          `config:"insecure"`
 		Counters   []interface{} `config:"counters"`
 		Rollup     []interface{} `config:"rollup"`
@@ -57,8 +57,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		BaseMetricSet: base,
 		Period:        config.Period,
 		Hosts:         config.Hosts,
-		Username:      config.Username,
-		Password:      config.Password,
+		Usernames:     config.Usernames,
+		Passwords:     config.Passwords,
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
 		Rollup:        config.Rollup,
@@ -79,8 +79,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters):       {},
 	}
 
-	for _, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Username, m.Password, host, m.Insecure, m.Period, m.MaxMetrics, data)
+	for i, host := range  m.Hosts {
+		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
 
 		if err != nil {
 			m.Logger().Panic(err)

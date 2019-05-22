@@ -4,6 +4,6 @@
   period: 20s
   maxMetrics: 64
   hosts: ["localhost"]
-  username: "username"
-  password: "password"
+  usernames: ["username"]
+  passwords: ["password"]
 
