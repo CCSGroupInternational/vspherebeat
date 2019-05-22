@@ -84,6 +84,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			return
 		}
 
+		m.Logger().Info("Starting collect Datastores metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 		datastores := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, datastore := range datastores {
@@ -118,5 +120,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				})
 			}
 		}
+
+		m.Logger().Info("Finishing collect Datastores metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 	}
 }

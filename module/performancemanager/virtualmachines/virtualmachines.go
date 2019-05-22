@@ -94,6 +94,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			return
 		}
 
+		m.Logger().Info("Starting collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 		vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, vm := range vms {
@@ -194,5 +196,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			}
 
 		}
+
+		m.Logger().Info("Finishing collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 	}
 }

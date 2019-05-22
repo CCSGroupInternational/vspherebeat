@@ -85,6 +85,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			return
 		}
 
+		m.Logger().Info("Starting collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 		hosts := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, host := range hosts {
@@ -148,5 +150,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
 		}
 
+		m.Logger().Info("Finishing collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 	}
 }

@@ -82,6 +82,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			return
 		}
 
+		m.Logger().Info("Starting collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 		virtualSwitches := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
 
 		for _, virtualSwitch := range virtualSwitches {
@@ -99,6 +101,8 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				})
 			}
 		}
+
+		m.Logger().Info("Finishing collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 
 	}
 }
