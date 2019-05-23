@@ -70,36 +70,33 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	data := map[string][]string{
 		string(pm.Datacenters): {},
 	}
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-	for i, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
-
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		datacenters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, datacenter := range datacenters {
-			if datacenter.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + datacenter.Entity.String() + " => ",  datacenter.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, datacenter)
-			for _, metric := range datacenter.Metrics {
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData": metadata,
-						"metric" : performancemanager.Metric(metric),
-					},
-				})
-			}
-
-		}
-
-		m.Logger().Info("Finishing collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	datacenters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, datacenter := range datacenters {
+		if datacenter.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + datacenter.Entity.String() + " => ",  datacenter.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, datacenter)
+		for _, metric := range datacenter.Metrics {
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData": metadata,
+					"metric" : performancemanager.Metric(metric),
+				},
+			})
+		}
+
+	}
+
+	m.Logger().Info("Finishing collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 }

@@ -30,7 +30,7 @@ type MetricSet struct {
 	Insecure   bool
 	Counters   []interface{}
 	Rollup     []interface{}
-	MaxQueries int
+	MaxMetrics int
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
@@ -44,7 +44,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Insecure   bool          `config:"insecure"`
 		Counters   []interface{} `config:"counters"`
 		Rollup     []interface{} `config:"rollup"`
-		MaxQueries int           `config:"maxQueries"`
+		MaxMetrics int           `config:"maxMetrics"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 		Insecure:      config.Insecure,
 		Counters:      config.Counters,
 		Rollup:        config.Rollup,
-		MaxQueries:    config.MaxQueries,
+		MaxMetrics:    config.MaxMetrics,
 	}, nil
 }
 
@@ -74,35 +74,33 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters)     : {},
 	}
 
-	for i, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxQueries, data)
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		virtualSwitches := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, virtualSwitch := range virtualSwitches {
-			if virtualSwitch.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + virtualSwitch.Entity.String() + " => ",  virtualSwitch.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, virtualSwitch)
-			for _, metric := range virtualSwitch.Metrics {
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData" : metadata,
-						"metric"   : performancemanager.MetricWithCustomInstance(metric, vspherePm.GetProperty(vspherePm.GetObject(string(pm.Hosts), strings.Split(metric.Value.Instance, " ")[0]), "name").(string)),
-					},
-				})
-			}
-		}
-
-		m.Logger().Info("Finishing collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	virtualSwitches := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, virtualSwitch := range virtualSwitches {
+		if virtualSwitch.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + virtualSwitch.Entity.String() + " => ",  virtualSwitch.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, virtualSwitch)
+		for _, metric := range virtualSwitch.Metrics {
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData" : metadata,
+					"metric"   : performancemanager.MetricWithCustomInstance(metric, vspherePm.GetProperty(vspherePm.GetObject(string(pm.Hosts), strings.Split(metric.Value.Instance, " ")[0]), "name").(string)),
+				},
+			})
+		}
+	}
+
+	m.Logger().Info("Finishing collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 }

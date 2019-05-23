@@ -75,35 +75,33 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters):   {},
 	}
 
-	for i, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		vapps := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, vapp := range vapps {
-			if vapp.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + vapp.Entity.String() + " => ",  vapp.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, vapp)
-			for _, metric := range vapp.Metrics {
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData": metadata,
-						"metric" : performancemanager.Metric(metric),
-					},
-				})
-			}
-
-		}
-
-		m.Logger().Info("Finishing collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	vapps := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, vapp := range vapps {
+		if vapp.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + vapp.Entity.String() + " => ",  vapp.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, vapp)
+		for _, metric := range vapp.Metrics {
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData": metadata,
+					"metric" : performancemanager.Metric(metric),
+				},
+			})
+		}
+
+	}
+
+	m.Logger().Info("Finishing collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 }

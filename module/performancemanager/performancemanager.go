@@ -259,3 +259,12 @@ func rollupFromConfig(rollup interface{}, metricset string) pm.Rollup {
 	}
 	return rollupConfig
 }
+
+func IndexOf(haystack string, needle []string) int {
+	for p, v := range needle {
+		if v == haystack {
+			return p
+		}
+	}
+	return -1
+}

@@ -72,38 +72,36 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datacenters):       {},
 	}
 
-	for i, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		datastoresClusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, datastoreCluster := range datastoresClusters {
-			if datastoreCluster.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + datastoreCluster.Entity.String() + " => ",  datastoreCluster.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, datastoreCluster)
-			// Provisioned Values
-			metadata["Storage"] = common.MapStr{
-				"Capacity": vspherePm.GetProperty(datastoreCluster, "summary.capacity"),
-			}
-			for _, metric := range datastoreCluster.Metrics {
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData": metadata,
-						"metric" : performancemanager.Metric(metric),
-					},
-				})
-			}
-		}
-
-		m.Logger().Info("Finishing collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	datastoresClusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, datastoreCluster := range datastoresClusters {
+		if datastoreCluster.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + datastoreCluster.Entity.String() + " => ",  datastoreCluster.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, datastoreCluster)
+		// Provisioned Values
+		metadata["Storage"] = common.MapStr{
+			"Capacity": vspherePm.GetProperty(datastoreCluster, "summary.capacity"),
+		}
+		for _, metric := range datastoreCluster.Metrics {
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData": metadata,
+					"metric" : performancemanager.Metric(metric),
+				},
+			})
+		}
+	}
+
+	m.Logger().Info("Finishing collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 }

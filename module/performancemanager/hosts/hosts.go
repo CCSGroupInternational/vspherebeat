@@ -77,79 +77,77 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datastores)      : {"summary.url", "info"},
 	}
 
-	for i, host := range  m.Hosts {
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		hosts := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, host := range hosts {
-			if host.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + host.Entity.String() + " => ",  host.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, host)
-
-			// Provisioned Values
-			metadata["Ram"] = common.MapStr{
-				"MemorySize": vspherePm.GetProperty(host, "hardware.memorySize"),
-			}
-			metadata["Cpu"] = common.MapStr{
-				"NumCpuCores"   : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuCores"),
-				"NumCpuThreads" : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuThreads"),
-				"Hz"            : vspherePm.GetProperty(host, "hardware.cpuInfo.hz"),
-			}
-			metadata["SystemInfo"] = common.MapStr{
-				"Vendor": vspherePm.GetProperty(host, "hardware.systemInfo.vendor"),
-			}
-			metadata["VirtualDisks"] = common.MapStr{
-				"HostMaxVirtualDiskCapacity": vspherePm.GetProperty(host, "runtime.hostMaxVirtualDiskCapacity"),
-			}
-
-			vmfs := make(map[string]string)
-			datastores := make(map[string]string)
-			for _, datastore := range vspherePm.GetProperty(host, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
-				datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
-				datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
-				datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
-				for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
-					vmfs[vmfsInfo.DiskName] = datastoreName
-				}
-			}
-
-			for _, metric := range host.Metrics {
-				instance := metric.Value.Instance
-				if len(instance) > 0 {
-					if strings.Contains(metric.Info.Metric, "disk.") &&
-						strings.Contains(instance , "naa.") {
-						if val, ok := vmfs[instance]; ok {
-							instance = val
-						}
-					} else if strings.Contains(metric.Info.Metric, "datastore.") {
-						if val, ok := datastores[instance]; ok {
-							instance = val
-						}
-					}
-				} else {
-					instance = "*"
-				}
-
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData" : metadata,
-						"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
-					},
-				})
-			}
-
-		}
-
-		m.Logger().Info("Finishing collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	hosts := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, host := range hosts {
+		if host.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + host.Entity.String() + " => ",  host.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, host)
+
+		// Provisioned Values
+		metadata["Ram"] = common.MapStr{
+			"MemorySize": vspherePm.GetProperty(host, "hardware.memorySize"),
+		}
+		metadata["Cpu"] = common.MapStr{
+			"NumCpuCores"   : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuCores"),
+			"NumCpuThreads" : vspherePm.GetProperty(host, "hardware.cpuInfo.numCpuThreads"),
+			"Hz"            : vspherePm.GetProperty(host, "hardware.cpuInfo.hz"),
+		}
+		metadata["SystemInfo"] = common.MapStr{
+			"Vendor": vspherePm.GetProperty(host, "hardware.systemInfo.vendor"),
+		}
+		metadata["VirtualDisks"] = common.MapStr{
+			"HostMaxVirtualDiskCapacity": vspherePm.GetProperty(host, "runtime.hostMaxVirtualDiskCapacity"),
+		}
+
+		vmfs := make(map[string]string)
+		datastores := make(map[string]string)
+		for _, datastore := range vspherePm.GetProperty(host, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
+			datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
+			datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
+			datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
+			for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
+				vmfs[vmfsInfo.DiskName] = datastoreName
+			}
+		}
+
+		for _, metric := range host.Metrics {
+			instance := metric.Value.Instance
+			if len(instance) > 0 {
+				if strings.Contains(metric.Info.Metric, "disk.") &&
+					strings.Contains(instance , "naa.") {
+					if val, ok := vmfs[instance]; ok {
+						instance = val
+					}
+				} else if strings.Contains(metric.Info.Metric, "datastore.") {
+					if val, ok := datastores[instance]; ok {
+						instance = val
+					}
+				}
+			} else {
+				instance = "*"
+			}
+
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData" : metadata,
+					"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
+				},
+			})
+		}
+
+	}
+
+	m.Logger().Info("Finishing collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 }

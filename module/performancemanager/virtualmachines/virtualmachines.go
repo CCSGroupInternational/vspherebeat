@@ -86,117 +86,116 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datastores):  {"info", "summary.url"},
 	}
 
-	for i, host := range  m.Hosts {
-		vspherePm, err := performancemanager.Connect(m.Usernames[i], m.Passwords[i], host, m.Insecure, m.Period, m.MaxMetrics, data)
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
-		if err != nil {
-			m.Logger().Panic(err)
-			return
-		}
-
-		m.Logger().Info("Starting collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
-		vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
-		for _, vm := range vms {
-			if vm.Error != nil {
-				m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + vm.Entity.String() + " => ",  vm.Error)
-				continue
-			}
-			metadata := performancemanager.MetaData(vspherePm, vm)
-			host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
-			metadataHost := performancemanager.MetaData(vspherePm, host)
-			metadataHost["host"] = metadataHost["name"]
-			delete(metadataHost, "name")
-			delete(metadataHost, "Folder")
-			for k, v := range metadataHost {
-				metadata[k] = v
-			}
-			// Provisioned Values
-			metadata["Ram"] = common.MapStr{
-				"MemorySizeMB": vspherePm.GetProperty(vm, "summary.config.memorySizeMB").(int32),
-			}
-			metadata["Cpu"] = common.MapStr{
-				"NumCpu"      : vspherePm.GetProperty(vm, "summary.config.numCpu").(int32),
-			}
-			metadata["GuestFullName"] = vspherePm.GetProperty(vm, "summary.config.guestFullName").(string)
-
-			vmfs := make(map[string]string)
-			datastores := make(map[string]string)
-			for _, datastore := range vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
-				datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
-				datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
-				datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
-				for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
-					vmfs[vmfsInfo.DiskName] = datastoreName
-				}
-			}
-
-			var devices []map[string]interface{}
-			var totalCapacityInBytes int64
-			controllersToDisk := make(map[string]string)
-			vmDevices := object.VirtualDeviceList(vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice)
-
-			for _, device := range vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice {
-				switch device.(type) {
-				case *types.VirtualDisk:
-
-					devices = append(devices, map[string]interface{}{
-						"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
-						"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
-						"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
-						//"SCSIController"  : fmt.Sprintf("scsi%d:%d", scsi.(types.BaseVirtualSCSIController).GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber),
-					})
-					totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
-
-					if scsi, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(types.BaseVirtualSCSIController); ok {
-						controllersToDisk[fmt.Sprintf("scsi%d:%d", scsi.GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
-					} else if ide, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(*types.VirtualIDEController); ok {
-						controllersToDisk[fmt.Sprintf("ide%d:%d", ide.UnitNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
-					}
-				}
-			}
-
-			metadata["Disks"] = common.MapStr{
-				"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
-				"TotalCapacityInBytes" : totalCapacityInBytes,
-			}
-
-			metadata["Devices"] = make(map[string][]map[string]interface{})
-			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = make([]map[string]interface{}, len(devices))
-			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = devices
-
-			for _, metric := range vm.Metrics {
-				instance := metric.Value.Instance
-				if len(instance) > 0 {
-					if regexp.MustCompile(`^disk\.`).Match([]byte(metric.Info.Metric)) &&
-						regexp.MustCompile(`^naa\.`).Match([]byte(instance)) {
-						if val, ok := vmfs[instance]; ok {
-							instance = val
-						}
-					} else if regexp.MustCompile(`^datastore\.`).Match([]byte(metric.Info.Metric)) {
-						if val, ok := datastores[instance]; ok {
-							instance = val
-						}
-					} else if regexp.MustCompile(`^virtualDisk\.`).Match([]byte(metric.Info.Metric)) {
-						if val, ok := controllersToDisk[instance]; ok {
-							instance = val
-						}
-					}
-				} else {
-					instance = "*"
-				}
-
-				report.Event(mb.Event{
-					MetricSetFields: common.MapStr{
-						"metaData" : metadata,
-						"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
-					},
-				})
-			}
-
-		}
-
-		m.Logger().Info("Finishing collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	if err != nil {
+		m.Logger().Panic(err)
+		return
 	}
+
+	m.Logger().Info("Starting collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
+	vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+
+	for _, vm := range vms {
+		if vm.Error != nil {
+			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + vm.Entity.String() + " => ",  vm.Error)
+			continue
+		}
+		metadata := performancemanager.MetaData(vspherePm, vm)
+		host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
+		metadataHost := performancemanager.MetaData(vspherePm, host)
+		metadataHost["host"] = metadataHost["name"]
+		delete(metadataHost, "name")
+		delete(metadataHost, "Folder")
+		for k, v := range metadataHost {
+			metadata[k] = v
+		}
+		// Provisioned Values
+		metadata["Ram"] = common.MapStr{
+			"MemorySizeMB": vspherePm.GetProperty(vm, "summary.config.memorySizeMB").(int32),
+		}
+		metadata["Cpu"] = common.MapStr{
+			"NumCpu"      : vspherePm.GetProperty(vm, "summary.config.numCpu").(int32),
+		}
+		metadata["GuestFullName"] = vspherePm.GetProperty(vm, "summary.config.guestFullName").(string)
+
+		vmfs := make(map[string]string)
+		datastores := make(map[string]string)
+		for _, datastore := range vspherePm.GetProperty(vm, "datastore").(types.ArrayOfManagedObjectReference).ManagedObjectReference {
+			datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
+			datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
+			datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
+			for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
+				vmfs[vmfsInfo.DiskName] = datastoreName
+			}
+		}
+
+		var devices []map[string]interface{}
+		var totalCapacityInBytes int64
+		controllersToDisk := make(map[string]string)
+		vmDevices := object.VirtualDeviceList(vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice)
+
+		for _, device := range vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice {
+			switch device.(type) {
+			case *types.VirtualDisk:
+
+				devices = append(devices, map[string]interface{}{
+					"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
+					"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
+					"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
+					//"SCSIController"  : fmt.Sprintf("scsi%d:%d", scsi.(types.BaseVirtualSCSIController).GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber),
+				})
+				totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
+
+				if scsi, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(types.BaseVirtualSCSIController); ok {
+					controllersToDisk[fmt.Sprintf("scsi%d:%d", scsi.GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+				} else if ide, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(*types.VirtualIDEController); ok {
+					controllersToDisk[fmt.Sprintf("ide%d:%d", ide.UnitNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+				}
+			}
+		}
+
+		metadata["Disks"] = common.MapStr{
+			"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
+			"TotalCapacityInBytes" : totalCapacityInBytes,
+		}
+
+		metadata["Devices"] = make(map[string][]map[string]interface{})
+		metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = make([]map[string]interface{}, len(devices))
+		metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = devices
+
+		for _, metric := range vm.Metrics {
+			instance := metric.Value.Instance
+			if len(instance) > 0 {
+				if regexp.MustCompile(`^disk\.`).Match([]byte(metric.Info.Metric)) &&
+					regexp.MustCompile(`^naa\.`).Match([]byte(instance)) {
+					if val, ok := vmfs[instance]; ok {
+						instance = val
+					}
+				} else if regexp.MustCompile(`^datastore\.`).Match([]byte(metric.Info.Metric)) {
+					if val, ok := datastores[instance]; ok {
+						instance = val
+					}
+				} else if regexp.MustCompile(`^virtualDisk\.`).Match([]byte(metric.Info.Metric)) {
+					if val, ok := controllersToDisk[instance]; ok {
+						instance = val
+					}
+				}
+			} else {
+				instance = "*"
+			}
+
+			report.Event(mb.Event{
+				MetricSetFields: common.MapStr{
+					"metaData" : metadata,
+					"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
+				},
+			})
+		}
+
+	}
+
+	m.Logger().Info("Finishing collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+
 }
