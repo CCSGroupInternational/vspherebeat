@@ -2,10 +2,10 @@
 # Docs: https://www.elastic.co/guide/en/beats/vspherebeat//vspherebeat-module-performancemanager.html
 
 - module: performancemanager
-  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters"]
-  enabled: false
-  period: 20s
-  maxMetrics: 64
-  hosts: ["localhost"]
-  usernames: ["username"]
-  passwords: ["password"]
+  metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters", "virtualswitches"]
+  enabled: true
+  period: 7200s
+  hosts: ["vcenter1", "vcenter2"]
+  usernames: ["username1", "username2"]
+  passwords: ["pass1", "pass2"]
+  insecure: true
