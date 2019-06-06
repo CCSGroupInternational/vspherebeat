@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -67,6 +68,9 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
+
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Hosts)           : {"parent"},
 		string(pm.Folders)         : {"parent"},
@@ -81,9 +85,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	virtualSwitches := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("virtualswitches:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, virtualSwitch := range virtualSwitches {
 		if virtualSwitch.Error != nil {
@@ -98,9 +103,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric"   : performancemanager.MetricWithCustomInstance(metric, vspherePm.GetProperty(vspherePm.GetObject(string(pm.Hosts), strings.Split(metric.Value.Instance, " ")[0]), "name").(string)),
 				},
 			})
+			count++
 		}
 	}
 
-	m.Logger().Info("Finishing collect Virtualswitches metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("virtualswitches:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("virtualswitches:events:" + m.Host() + ":" + strconv.Itoa(count))
 
 }

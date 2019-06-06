@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"time"
 )
 
@@ -67,6 +68,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Vapps):         {"parent"},
 		string(pm.ResourcePools): {"parent"},
@@ -82,9 +85,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	vapps := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("vapps:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, vapp := range vapps {
 		if vapp.Error != nil {
@@ -99,9 +103,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
+			count++
 		}
 
 	}
 
-	m.Logger().Info("Finishing collect Vapps metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("vapps:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("vapps:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

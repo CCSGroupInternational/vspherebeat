@@ -68,6 +68,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Datastores):        {"summary.url", "parent", "info.maxVirtualDiskCapacity", "summary.capacity"},
 		string(pm.VMs):               {},
@@ -83,9 +85,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Datastores metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	datastores := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("datastores:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, datastore := range datastores {
 		if datastore.Error != nil {
@@ -117,8 +120,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric" : performancemanager.MetricWithCustomInstance(metric, instance),
 				},
 			})
+
+			count++
 		}
 	}
 
-	m.Logger().Info("Finishing collect Datastores metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("datastores:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("datastores:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

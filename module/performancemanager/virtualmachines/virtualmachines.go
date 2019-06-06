@@ -10,6 +10,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -73,6 +74,9 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
+
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.VMs):      {
 			"runtime.host", "parent", "summary.config.memorySizeMB", "summary.config.guestFullName","summary.config.numCpu",
@@ -93,24 +97,28 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
 
+	t2 := time.Now()
 	vms := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
-
+	m.Logger().Info("virtualMachines:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 	for _, vm := range vms {
 		if vm.Error != nil {
 			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + vm.Entity.String() + " => ",  vm.Error)
 			continue
 		}
 		metadata := performancemanager.MetaData(vspherePm, vm)
-		host := vspherePm.GetProperty(vm, "runtime.host").(pm.ManagedObject)
-		metadataHost := performancemanager.MetaData(vspherePm, host)
-		metadataHost["host"] = metadataHost["name"]
-		delete(metadataHost, "name")
-		delete(metadataHost, "Folder")
-		for k, v := range metadataHost {
-			metadata[k] = v
+		host := vspherePm.GetProperty(vm, "runtime.host")
+		if host != nil {
+			metadataHost := performancemanager.MetaData(vspherePm, host.(pm.ManagedObject))
+			metadataHost["host"] = metadataHost["name"]
+			delete(metadataHost, "name")
+			delete(metadataHost, "Folder")
+			for k, v := range metadataHost {
+				metadata[k] = v
+			}
 		}
+
 		// Provisioned Values
 		metadata["Ram"] = common.MapStr{
 			"MemorySizeMB": vspherePm.GetProperty(vm, "summary.config.memorySizeMB").(int32),
@@ -144,7 +152,6 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
 					"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
 					"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
-					//"SCSIController"  : fmt.Sprintf("scsi%d:%d", scsi.(types.BaseVirtualSCSIController).GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber),
 				})
 				totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
 
@@ -192,10 +199,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
 				},
 			})
-		}
 
+			count++
+		}
 	}
 
-	m.Logger().Info("Finishing collect VirtualMachines metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	m.Logger().Info("virtualMachines:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("virtualMachines:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

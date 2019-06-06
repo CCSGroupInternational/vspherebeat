@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"time"
 )
 
@@ -67,6 +68,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.ResourcePools)    : {"parent", "summary.configuredMemoryMB"},
 		string(pm.Clusters)         : {"parent"},
@@ -83,9 +86,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Resource Pools metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	resourcePools := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("resourcepools:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, resourcePool := range resourcePools {
 		if resourcePool.Error != nil {
@@ -104,8 +108,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
+			count++
 		}
 	}
 
-	m.Logger().Info("Finishing collect Resource Pools metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("resourcepools:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("resourcepools:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

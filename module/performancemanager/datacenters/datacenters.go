@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"time"
 )
 
@@ -67,6 +68,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Datacenters): {},
 	}
@@ -77,9 +80,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	datacenters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("datacenters:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, datacenter := range datacenters {
 		if datacenter.Error != nil {
@@ -94,9 +98,12 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
+
+			count++
 		}
 
 	}
 
-	m.Logger().Info("Finishing collect Datacenters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("datacenters:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("datacenters:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

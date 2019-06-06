@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"time"
 )
 
@@ -67,6 +68,8 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
 
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Clusters)    : {"parent"},
 		string(pm.Folders)     : {"parent"},
@@ -80,26 +83,29 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	clusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("clusters:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, cluster := range clusters {
 		if cluster.Error != nil {
 			m.Logger().Error(vspherePm.Config.Vcenter.Host + " => " + cluster.Entity.String() + " => ",  cluster.Error)
 			continue
 		}
-		metaData := performancemanager.MetaData(vspherePm, cluster)
+		metadata := performancemanager.MetaData(vspherePm, cluster)
 		for _, metric := range cluster.Metrics {
-
 			report.Event(mb.Event{
 				MetricSetFields: common.MapStr{
-					"metaData": metaData,
+					"metaData": metadata,
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
+
+			count++
 		}
 	}
 
-	m.Logger().Info("Finishing collect Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("clusters:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("clusters:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

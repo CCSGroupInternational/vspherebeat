@@ -5,6 +5,7 @@ import (
 	"github.com/CCSGroupInternational/vspherebeat/module/performancemanager"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
+	"strconv"
 	"time"
 )
 
@@ -66,6 +67,9 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
+
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.DatastoreClusters): {"parent", "summary.capacity"},
 		string(pm.Folders):           {"parent"},
@@ -79,9 +83,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	datastoresClusters := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("datastoresclusters:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, datastoreCluster := range datastoresClusters {
 		if datastoreCluster.Error != nil {
@@ -100,8 +105,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric" : performancemanager.Metric(metric),
 				},
 			})
+			count++
 		}
 	}
 
-	m.Logger().Info("Finishing collect Datastores Clusters metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("datastoresclusters:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("datastoresclusters:events:" + m.Host() + ":" + strconv.Itoa(count))
 }

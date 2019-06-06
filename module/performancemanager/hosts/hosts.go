@@ -6,6 +6,7 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/metricbeat/mb"
 	"github.com/vmware/govmomi/vim25/types"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -68,6 +69,9 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // format. It publishes the event which is then forwarded to the output. In case
 // of an error set the Error field of mb.Event or simply call report.Error().
 func (m *MetricSet) Fetch(report mb.ReporterV2) {
+
+	t1 := time.Now()
+
 	data := map[string][]string{
 		string(pm.Hosts)           : {"parent", "datastore", "hardware.cpuInfo.numCpuCores", "hardware.cpuInfo.numCpuThreads", "hardware.cpuInfo.hz" , "hardware.memorySize", "runtime.hostMaxVirtualDiskCapacity", "hardware.systemInfo.vendor"},
 		string(pm.Clusters)        : {"parent"},
@@ -84,9 +88,10 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		return
 	}
 
-	m.Logger().Info("Starting collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
-
+	t2 := time.Now()
 	hosts := performancemanager.Fetch(m.Name(), m.Counters, m.Rollup, &vspherePm)
+	m.Logger().Info("hosts:collect:" + m.Host() + ":" + time.Now().Sub(t2).String())
+	count := 0
 
 	for _, host := range hosts {
 		if host.Error != nil {
@@ -145,9 +150,11 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					"metric"   : performancemanager.MetricWithCustomInstance(metric, instance),
 				},
 			})
+			count++
 		}
 
 	}
 
-	m.Logger().Info("Finishing collect Hosts metrics from Vcenter : " + vspherePm.Config.Vcenter.Host + " ", time.Now())
+	m.Logger().Info("hosts:finish:" + m.Host() + ":" + time.Now().Sub(t1).String())
+	m.Logger().Info("hosts:events:" + m.Host() + ":" + strconv.Itoa(count))
 }
