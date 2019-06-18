@@ -174,10 +174,14 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 					case *types.VirtualDiskSparseVer2BackingInfo:
 						datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskSparseVer2BackingInfo).Datastore.Value ), "name").(string)
 					case *types.VirtualDiskFlatVer2BackingInfo:
-						datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string)
+						if datastoreObject := reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore; datastoreObject != nil {
+							datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastoreObject.Value ), "name").(string)
+						}
+					case *types.VirtualDiskRawDiskMappingVer1BackingInfo:
+						datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskRawDiskMappingVer1BackingInfo).Datastore.Value ), "name").(string)
 					default:
 						datastore = "N/A - Check Beat Logs"
-						m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vspherePm.GetProperty(vm, "name").(string) + ":",  "virtualdisk has a different type")
+						m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vspherePm.GetProperty(vm, "name").(string) + ":",  "virtualdisk has a different type : " , reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Type() )
 					}
 
 					devices = append(devices, map[string]interface{}{
