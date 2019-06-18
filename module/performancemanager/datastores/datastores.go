@@ -106,7 +106,13 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			var instance string
 			if len(metric.Value.Instance) != 0 {
 				if _, err := strconv.Atoi(metric.Value.Instance); err == nil {
-					instance = vspherePm.GetProperty(vspherePm.GetObject(string(pm.VMs), "vm-" + metric.Value.Instance), "name").(string)
+					if instanceTemp := vspherePm.GetProperty(vspherePm.GetObject(string(pm.VMs), "vm-" + metric.Value.Instance), "name") ; instanceTemp != nil {
+						instance = instanceTemp.(string)
+					} else {
+						instance = ""
+						m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + datastore.Entity.String() + ":" + metric.Info.Metric + ":",  "instance is nil")
+					}
+
 				} else {
 					instance = metric.Value.Instance
 				}

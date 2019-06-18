@@ -120,13 +120,34 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		}
 
 		// Provisioned Values
-		metadata["Ram"] = common.MapStr{
-			"MemorySizeMB": vspherePm.GetProperty(vm, "summary.config.memorySizeMB").(int32),
+		if memory := vspherePm.GetProperty(vm, "summary.config.memorySizeMB"); memory != nil {
+			metadata["Ram"] = common.MapStr{
+				"MemorySizeMB": memory.(int32),
+			}
+		} else {
+			metadata["Ram"] = common.MapStr{
+				"MemorySizeMB": "",
+			}
+			m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vm.Entity.String() + ":",  "summary.config.memorySizeMB is nil")
 		}
-		metadata["Cpu"] = common.MapStr{
-			"NumCpu"      : vspherePm.GetProperty(vm, "summary.config.numCpu").(int32),
+
+		if cpu := vspherePm.GetProperty(vm, "summary.config.numCpu"); cpu != nil {
+			metadata["Cpu"] = common.MapStr{
+				"NumCpu": cpu.(int32),
+			}
+		} else {
+			metadata["Cpu"] = common.MapStr{
+				"NumCpu": "",
+			}
+			m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vm.Entity.String() + ":",  "summary.config.numCpu is nil")
 		}
-		metadata["GuestFullName"] = vspherePm.GetProperty(vm, "summary.config.guestFullName").(string)
+
+		if guestfullname := vspherePm.GetProperty(vm, "summary.config.guestFullName"); guestfullname != nil {
+			metadata["GuestFullName"] = guestfullname.(string)
+		} else {
+			metadata["GuestFullName"] = ""
+			m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vm.Entity.String() + ":",  "summary.config.guestFullName is nil")
+		}
 
 		vmfs := make(map[string]string)
 		datastores := make(map[string]string)
@@ -142,35 +163,38 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		var devices []map[string]interface{}
 		var totalCapacityInBytes int64
 		controllersToDisk := make(map[string]string)
-		vmDevices := object.VirtualDeviceList(vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice)
 
-		for _, device := range vspherePm.GetProperty(vm, "config.hardware.device").(types.ArrayOfVirtualDevice).VirtualDevice {
-			switch device.(type) {
-			case *types.VirtualDisk:
+		if hardware := vspherePm.GetProperty(vm, "config.hardware.device"); hardware != nil {
+			vmDevices := object.VirtualDeviceList(hardware.(types.ArrayOfVirtualDevice).VirtualDevice)
 
-				devices = append(devices, map[string]interface{}{
-					"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
-					"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
-					"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
-				})
-				totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
+			for _, device := range hardware.(types.ArrayOfVirtualDevice).VirtualDevice {
+				switch device.(type) {
+				case *types.VirtualDisk:
 
-				if scsi, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(types.BaseVirtualSCSIController); ok {
-					controllersToDisk[fmt.Sprintf("scsi%d:%d", scsi.GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
-				} else if ide, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(*types.VirtualIDEController); ok {
-					controllersToDisk[fmt.Sprintf("ide%d:%d", ide.UnitNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+					devices = append(devices, map[string]interface{}{
+						"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
+						"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
+						"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
+					})
+					totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
+
+					if scsi, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(types.BaseVirtualSCSIController); ok {
+						controllersToDisk[fmt.Sprintf("scsi%d:%d", scsi.GetVirtualSCSIController().BusNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+					} else if ide, ok := vmDevices.FindByKey(device.(*types.VirtualDisk).ControllerKey).(*types.VirtualIDEController); ok {
+						controllersToDisk[fmt.Sprintf("ide%d:%d", ide.UnitNumber, *device.(*types.VirtualDisk).UnitNumber)] = device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label
+					}
 				}
 			}
-		}
 
-		metadata["Disks"] = common.MapStr{
-			"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
-			"TotalCapacityInBytes" : totalCapacityInBytes,
-		}
+			metadata["Disks"] = common.MapStr{
+				"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
+				"TotalCapacityInBytes" : totalCapacityInBytes,
+			}
 
-		metadata["Devices"] = make(map[string][]map[string]interface{})
-		metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = make([]map[string]interface{}, len(devices))
-		metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = devices
+			metadata["Devices"] = make(map[string][]map[string]interface{})
+			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = make([]map[string]interface{}, len(devices))
+			metadata["Devices"].(map[string][]map[string]interface{})["VirtualDisks"] = devices
+		}
 
 		for _, metric := range vm.Metrics {
 			instance := metric.Value.Instance
