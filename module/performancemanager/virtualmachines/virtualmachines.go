@@ -163,18 +163,27 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		var devices []map[string]interface{}
 		var totalCapacityInBytes int64
 		controllersToDisk := make(map[string]string)
-
 		if hardware := vspherePm.GetProperty(vm, "config.hardware.device"); hardware != nil {
 			vmDevices := object.VirtualDeviceList(hardware.(types.ArrayOfVirtualDevice).VirtualDevice)
-
 			for _, device := range hardware.(types.ArrayOfVirtualDevice).VirtualDevice {
+				var datastore string
 				switch device.(type) {
 				case *types.VirtualDisk:
+
+					switch device.(*types.VirtualDisk).Backing.(type) {
+					case *types.VirtualDiskSparseVer2BackingInfo:
+						datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskSparseVer2BackingInfo).Datastore.Value ), "name").(string)
+					case *types.VirtualDiskFlatVer2BackingInfo:
+						datastore = vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string)
+					default:
+						datastore = "N/A - Check Beat Logs"
+						m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vspherePm.GetProperty(vm, "name").(string) + ":",  "virtualdisk has a different type")
+					}
 
 					devices = append(devices, map[string]interface{}{
 						"CapacityInBytes" : device.(*types.VirtualDisk).CapacityInBytes,
 						"Name"            : device.(*types.VirtualDisk).DeviceInfo.GetDescription().Label,
-						"Datastore"       : vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), reflect.ValueOf(device.(*types.VirtualDisk).Backing).Elem().Interface().(types.VirtualDiskFlatVer2BackingInfo).Datastore.Value ), "name").(string),
+						"Datastore"       : datastore,
 					})
 					totalCapacityInBytes += device.(*types.VirtualDisk).CapacityInBytes
 
