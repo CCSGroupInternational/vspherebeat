@@ -93,7 +93,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
 
 	if err != nil {
-		m.Logger().Panic(err)
+		m.Logger().Error(err)
 		return
 	}
 
