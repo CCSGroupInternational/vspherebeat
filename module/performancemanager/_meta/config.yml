@@ -2,7 +2,8 @@
   metricsets: ["virtualmachines", "hosts", "clusters", "datastores", "resourcepools", "datacenters", "vapps", "datastoresclusters", "virtualswitches" ]
   enabled: false
   period: 20s
-  maxMetrics: 64
+  maxMetrics: 264
+  vcenterConnectionRetries: 3
   hosts: ["localhost"]
   usernames: ["username"]
   passwords: ["password"]

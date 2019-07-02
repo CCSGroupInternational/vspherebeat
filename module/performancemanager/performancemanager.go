@@ -6,21 +6,39 @@ import (
 	"time"
 )
 
-func Connect(user string, pass string, host string, insecure bool, interval time.Duration, maxMetrics int, data map[string][]string) (pm.VspherePerfManager, error) {
-	vspherePm := pm.VspherePerfManager{
-		Config: pm.Config{
-			Vcenter: pm.Vcenter{
-				Username: user,
-				Password: pass,
-				Host:     host,
-				Insecure: insecure,
-			},
-			Interval:   interval,
-			Data:       data,
-			MaxMetrics: maxMetrics,
-		},
+func Connect(user string, pass string, host string, insecure bool, interval time.Duration, maxMetrics int, data map[string][]string, VcenterConnectionRetries int) (pm.VspherePerfManager, error) {
+
+	var vspherePm pm.VspherePerfManager
+	var err error
+
+	if VcenterConnectionRetries == 0 {
+		VcenterConnectionRetries = 1
 	}
-	err := vspherePm.Init()
+
+	for i := 0; i < VcenterConnectionRetries; i++ {
+
+		vspherePm = pm.VspherePerfManager{
+			Config: pm.Config{
+				Vcenter: pm.Vcenter{
+					Username: user,
+					Password: pass,
+					Host:     host,
+					Insecure: insecure,
+				},
+				Interval:   interval,
+				Data:       data,
+				MaxMetrics: maxMetrics,
+			},
+		}
+		err = vspherePm.Init()
+
+		if err == nil {
+			break
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+
 	return vspherePm, err
 }
 

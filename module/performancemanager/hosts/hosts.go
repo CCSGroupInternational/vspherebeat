@@ -25,43 +25,46 @@ func init() {
 // interface methods except for Fetch.
 type MetricSet struct {
 	mb.BaseMetricSet
-	Period     time.Duration
-	Hosts      []string
-	Usernames  []string
-	Passwords  []string
-	Insecure   bool
-	Counters   []interface{}
-	Rollup     []interface{}
-	MaxMetrics int
+	Period                   time.Duration
+	Hosts                    []string
+	Usernames                []string
+	Passwords                []string
+	Insecure                 bool
+	Counters                 []interface{}
+	Rollup                   []interface{}
+	MaxMetrics               int
+	VcenterConnectionRetries int
 }
 
 // New creates a new instance of the MetricSet. New is responsible for unpacking
 // any MetricSet specific configuration options if there are any.
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 	config := struct{
-		Period     time.Duration `config:"period"`
-		Hosts      []string      `config:"hosts"`
-		Usernames  []string      `config:"usernames"`
-		Passwords  []string      `config:"passwords"`
-		Insecure   bool          `config:"insecure"`
-		Counters   []interface{} `config:"counters"`
-		Rollup     []interface{} `config:"rollup"`
-		MaxMetrics int           `config:"maxMetrics"`
+		Period                   time.Duration `config:"period"`
+		Hosts                    []string      `config:"hosts"`
+		Usernames                []string      `config:"usernames"`
+		Passwords                []string      `config:"passwords"`
+		Insecure                 bool          `config:"insecure"`
+		Counters                 []interface{} `config:"counters"`
+		Rollup                   []interface{} `config:"rollup"`
+		MaxMetrics               int           `config:"maxMetrics"`
+		VcenterConnectionRetries int           `config:"vcenterConnectionRetries"`
 	}{}
 	if err := base.Module().UnpackConfig(&config); err != nil {
 		return nil, err
 	}
 
 	return &MetricSet{
-		BaseMetricSet: base,
-		Period:        config.Period,
-		Hosts:         config.Hosts,
-		Usernames:     config.Usernames,
-		Passwords:     config.Passwords,
-		Insecure:      config.Insecure,
-		Counters:      config.Counters,
-		Rollup:        config.Rollup,
-		MaxMetrics:    config.MaxMetrics,
+		BaseMetricSet:            base,
+		Period:                   config.Period,
+		Hosts:                    config.Hosts,
+		Usernames:                config.Usernames,
+		Passwords:                config.Passwords,
+		Insecure:                 config.Insecure,
+		Counters:                 config.Counters,
+		Rollup:                   config.Rollup,
+		MaxMetrics:               config.MaxMetrics,
+		VcenterConnectionRetries: config.VcenterConnectionRetries,
 	}, nil
 }
 
@@ -81,7 +84,7 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 		string(pm.Datastores)      : {"summary.url", "info"},
 	}
 
-	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data)
+	vspherePm, err := performancemanager.Connect(m.Usernames[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Passwords[performancemanager.IndexOf(m.Host(), m.Hosts)], m.Host(), m.Insecure, m.Period, m.MaxMetrics, data, m.VcenterConnectionRetries)
 
 	if err != nil {
 		m.Logger().Error(err)
