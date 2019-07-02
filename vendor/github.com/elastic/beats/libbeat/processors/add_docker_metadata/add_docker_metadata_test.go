@@ -104,6 +104,7 @@ func TestMatchNoContainer(t *testing.T) {
 func TestMatchContainer(t *testing.T) {
 	testConfig, err := common.NewConfigFrom(map[string]interface{}{
 		"match_fields": []string{"foo"},
+		"labels.dedot": false,
 	})
 	assert.NoError(t, err)
 
@@ -152,7 +153,6 @@ func TestMatchContainer(t *testing.T) {
 func TestMatchContainerWithDedot(t *testing.T) {
 	testConfig, err := common.NewConfigFrom(map[string]interface{}{
 		"match_fields": []string{"foo"},
-		"labels.dedot": true,
 	})
 	assert.NoError(t, err)
 
@@ -221,7 +221,11 @@ func TestMatchSource(t *testing.T) {
 		inputSource = "/var/lib/docker/containers/FABADA/foo.log"
 	}
 	input := common.MapStr{
-		"source": inputSource,
+		"log": common.MapStr{
+			"file": common.MapStr{
+				"path": inputSource,
+			},
+		},
 	}
 
 	result, err := p.Run(&beat.Event{Fields: input})
@@ -239,7 +243,11 @@ func TestMatchSource(t *testing.T) {
 			},
 			"name": "name",
 		},
-		"source": inputSource,
+		"log": common.MapStr{
+			"file": common.MapStr{
+				"path": inputSource,
+			},
+		},
 	}, result.Fields)
 }
 

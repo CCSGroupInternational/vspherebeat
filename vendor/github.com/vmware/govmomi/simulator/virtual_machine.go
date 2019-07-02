@@ -25,12 +25,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/simulator/esx"
 	"github.com/vmware/govmomi/vim25/methods"
@@ -98,8 +98,8 @@ func NewVirtualMachine(parent types.ManagedObjectReference, spec *types.VirtualM
 		NumCPUs:           1,
 		NumCoresPerSocket: 1,
 		MemoryMB:          32,
-		Uuid:              uuid.New().String(),
-		InstanceUuid:      uuid.New().String(),
+		Uuid:              newUUID(spec.Files.VmPathName),
+		InstanceUuid:      newUUID(strings.ToUpper(spec.Files.VmPathName)),
 		Version:           esx.HardwareVersion,
 		Files: &types.VirtualMachineFileInfo{
 			SnapshotDirectory: dsPath,
@@ -724,14 +724,19 @@ func (vm *VirtualMachine) RefreshStorageInfo(ctx *Context, req *types.RefreshSto
 
 	vm.LayoutEx.Timestamp = time.Now()
 
+	body.Res = new(types.RefreshStorageInfoResponse)
+
 	return body
 }
 
-func (vm *VirtualMachine) useDatastore(name string) *Datastore {
+func (vm *VirtualMachine) findDatastore(name string) *Datastore {
 	host := Map.Get(*vm.Runtime.Host).(*HostSystem)
 
-	ds := Map.FindByName(name, host.Datastore).(*Datastore)
+	return Map.FindByName(name, host.Datastore).(*Datastore)
+}
 
+func (vm *VirtualMachine) useDatastore(name string) *Datastore {
+	ds := vm.findDatastore(name)
 	if FindReference(vm.Datastore, ds.Self) == nil {
 		vm.Datastore = append(vm.Datastore, ds.Self)
 	}
@@ -758,7 +763,7 @@ func (vm *VirtualMachine) createFile(spec string, name string, register bool) (*
 	}
 
 	if register {
-		f, err := os.Open(file)
+		f, err := os.Open(filepath.Clean(file))
 		if err != nil {
 			log.Printf("register %s: %s", vm.Reference(), err)
 			if os.IsNotExist(err) {
@@ -851,7 +856,7 @@ var vmwOUI = net.HardwareAddr([]byte{0x0, 0xc, 0x29})
 //  format of the virtual machine UUID.  The virtual machine UUID is based on a hash calculated by using the UUID of the
 //  ESXi physical machine and the path to the configuration file (.vmx) of the virtual machine."
 func (vm *VirtualMachine) generateMAC() string {
-	id := uuid.New() // Random is fine for now.
+	id := vm.Config.Uuid
 
 	offset := len(id) - len(vmwOUI)
 
@@ -980,20 +985,18 @@ func (vm *VirtualMachine) configureDevice(devices object.VirtualDeviceList, spec
 			})
 
 			p, _ := parseDatastorePath(info.FileName)
-
-			host := Map.Get(*vm.Runtime.Host).(*HostSystem)
-
-			entity := Map.FindByName(p.Datastore, host.Datastore)
-			ref := entity.Reference()
-			info.Datastore = &ref
-
-			ds := entity.(*Datastore)
+			ds := vm.findDatastore(p.Datastore)
+			info.Datastore = &ds.Self
 
 			// XXX: compare disk size and free space until windows stat is supported
 			ds.Summary.FreeSpace -= getDiskSize(x)
 			ds.Info.GetDatastoreInfo().FreeSpace = ds.Summary.FreeSpace
 
 			vm.updateDiskLayouts()
+		}
+	case *types.VirtualCdrom:
+		if b, ok := d.Backing.(types.BaseVirtualDeviceFileBackingInfo); ok {
+			summary = "ISO " + b.GetVirtualDeviceFileBackingInfo().FileName
 		}
 	}
 
@@ -1005,6 +1008,14 @@ func (vm *VirtualMachine) configureDevice(devices object.VirtualDeviceList, spec
 		d.DeviceInfo = &types.Description{
 			Label:   label,
 			Summary: summary,
+		}
+	} else {
+		info := d.DeviceInfo.GetDescription()
+		if info.Label == "" {
+			info.Label = label
+		}
+		if info.Summary == "" {
+			info.Summary = summary
 		}
 	}
 
@@ -1031,10 +1042,7 @@ func (vm *VirtualMachine) removeDevice(devices object.VirtualDeviceList, spec *t
 					file = b.GetVirtualDeviceFileBackingInfo().FileName
 
 					p, _ := parseDatastorePath(file)
-
-					host := Map.Get(*vm.Runtime.Host).(*HostSystem)
-
-					ds := Map.FindByName(p.Datastore, host.Datastore).(*Datastore)
+					ds := vm.findDatastore(p.Datastore)
 
 					ds.Summary.FreeSpace += getDiskSize(device)
 					ds.Info.GetDatastoreInfo().FreeSpace = ds.Summary.FreeSpace
@@ -1145,12 +1153,22 @@ func (vm *VirtualMachine) configureDevices(spec *types.VirtualMachineConfigSpec)
 				return invalid
 			}
 
+			key := device.Key
 			err := vm.configureDevice(devices, dspec)
 			if err != nil {
 				return err
 			}
 
 			devices = append(devices, dspec.Device)
+			if key != device.Key {
+				// Update ControllerKey refs
+				for i := range spec.DeviceChange {
+					ckey := &spec.DeviceChange[i].GetVirtualDeviceConfigSpec().Device.GetVirtualDevice().ControllerKey
+					if *ckey == key {
+						*ckey = device.Key
+					}
+				}
+			}
 		case types.VirtualDeviceConfigSpecOperationEdit:
 			rspec := *dspec
 			rspec.Device = devices.FindByKey(device.Key)
@@ -1158,7 +1176,7 @@ func (vm *VirtualMachine) configureDevices(spec *types.VirtualMachineConfigSpec)
 				return invalid
 			}
 			devices = vm.removeDevice(devices, &rspec)
-			device.DeviceInfo = nil // regenerate summary + label
+			device.DeviceInfo.GetDescription().Summary = "" // regenerate summary
 
 			err := vm.configureDevice(devices, dspec)
 			if err != nil {
@@ -1295,17 +1313,25 @@ func (vm *VirtualMachine) ResetVMTask(ctx *Context, req *types.ResetVM_Task) soa
 
 func (vm *VirtualMachine) ReconfigVMTask(ctx *Context, req *types.ReconfigVM_Task) soap.HasFault {
 	task := CreateTask(vm, "reconfigVm", func(t *Task) (types.AnyType, types.BaseMethodFault) {
-		err := vm.configure(&req.Spec)
-		if err != nil {
-			return nil, err
-		}
-
 		ctx.postEvent(&types.VmReconfiguredEvent{
 			VmEvent:    vm.event(),
 			ConfigSpec: req.Spec,
 		})
 
-		return nil, nil
+		if vm.Config.Template {
+			expect := types.VirtualMachineConfigSpec{
+				Name:       req.Spec.Name,
+				Annotation: req.Spec.Annotation,
+			}
+			if !reflect.DeepEqual(&req.Spec, &expect) {
+				log.Printf("template reconfigure only allows name and annotation change")
+				return nil, new(types.NotSupported)
+			}
+		}
+
+		err := vm.configure(&req.Spec)
+
+		return nil, err
 	})
 
 	return &methods.ReconfigVM_TaskBody{
@@ -1476,6 +1502,9 @@ func (vm *VirtualMachine) CloneVMTask(ctx *Context, req *types.CloneVM_Task) soa
 		ref := ctask.Info.Result.(types.ManagedObjectReference)
 		clone := Map.Get(ref).(*VirtualMachine)
 		clone.configureDevices(&types.VirtualMachineConfigSpec{DeviceChange: req.Spec.Location.DeviceChange})
+		if req.Spec.Config != nil && req.Spec.Config.DeviceChange != nil {
+			clone.configureDevices(&types.VirtualMachineConfigSpec{DeviceChange: req.Spec.Config.DeviceChange})
+		}
 
 		ctx.postEvent(&types.VmClonedEvent{
 			VmCloneEvent: types.VmCloneEvent{VmEvent: clone.event()},

@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/vmware/govmomi/simulator/esx"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -53,14 +52,10 @@ func NewHostSystem(host mo.HostSystem) *HostSystem {
 	hs.Summary.Runtime = &hs.Runtime
 	hs.Summary.Runtime.BootTime = &now
 
-	id := uuid.New().String()
-
 	hardware := *host.Summary.Hardware
 	hs.Summary.Hardware = &hardware
-	hs.Summary.Hardware.Uuid = id
 
 	info := *esx.HostHardwareInfo
-	info.SystemInfo.Uuid = id
 	hs.Hardware = &info
 
 	config := []struct {
@@ -80,6 +75,19 @@ func NewHostSystem(host mo.HostSystem) *HostSystem {
 	}
 
 	return hs
+}
+
+func (h *HostSystem) configure(spec types.HostConnectSpec, connected bool) {
+	h.Runtime.ConnectionState = types.HostSystemConnectionStateDisconnected
+	if connected {
+		h.Runtime.ConnectionState = types.HostSystemConnectionStateConnected
+	}
+
+	h.Summary.Config.Name = spec.HostName
+	h.Name = h.Summary.Config.Name
+	id := newUUID(h.Name)
+	h.Summary.Hardware.Uuid = id
+	h.Hardware.SystemInfo.Uuid = id
 }
 
 func (h *HostSystem) event() types.HostEvent {
@@ -141,10 +149,15 @@ func CreateDefaultESX(f *Folder) {
 	summary := new(types.ComputeResourceSummary)
 	addComputeResource(summary, host)
 
-	cr := &mo.ComputeResource{Summary: summary}
+	cr := &mo.ComputeResource{
+		Summary: summary,
+		Network: esx.Datacenter.Network,
+	}
+	cr.EnvironmentBrowser = newEnvironmentBrowser()
 	cr.Self = *host.Parent
 	cr.Name = host.Name
 	cr.Host = append(cr.Host, host.Reference())
+	host.Network = cr.Network
 	Map.PutEntity(cr, host)
 
 	pool := NewResourcePool()
@@ -164,10 +177,7 @@ func CreateStandaloneHost(f *Folder, spec types.HostConnectSpec) (*HostSystem, t
 
 	pool := NewResourcePool()
 	host := NewHostSystem(esx.HostSystem)
-
-	host.Summary.Config.Name = spec.HostName
-	host.Name = host.Summary.Config.Name
-	host.Runtime.ConnectionState = types.HostSystemConnectionStateDisconnected
+	host.configure(spec, false)
 
 	summary := new(types.ComputeResourceSummary)
 	addComputeResource(summary, host)
@@ -176,7 +186,8 @@ func CreateStandaloneHost(f *Folder, spec types.HostConnectSpec) (*HostSystem, t
 		ConfigurationEx: &types.ComputeResourceConfigInfo{
 			VmSwapPlacement: string(types.VirtualMachineConfigInfoSwapPlacementTypeVmDirectory),
 		},
-		Summary: summary,
+		Summary:            summary,
+		EnvironmentBrowser: newEnvironmentBrowser(),
 	}
 
 	Map.PutEntity(cr, Map.NewEntity(host))
@@ -185,11 +196,13 @@ func CreateStandaloneHost(f *Folder, spec types.HostConnectSpec) (*HostSystem, t
 	Map.PutEntity(cr, Map.NewEntity(pool))
 
 	cr.Name = host.Name
+	cr.Network = Map.getEntityDatacenter(f).defaultNetwork()
 	cr.Host = append(cr.Host, host.Reference())
 	cr.ResourcePool = &pool.Self
 
 	f.putChild(cr)
 	pool.Owner = cr.Self
+	host.Network = cr.Network
 
 	return host, nil
 }

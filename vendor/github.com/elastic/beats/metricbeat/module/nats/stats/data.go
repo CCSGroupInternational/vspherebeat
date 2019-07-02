@@ -34,8 +34,10 @@ import (
 
 var (
 	moduleSchema = s.Schema{
-		"server_id": c.Str("server_id"),
-		"now":       c.Str("now"),
+		"server": s.Object{
+			"id":   c.Str("server_id"),
+			"time": c.Str("now"),
+		},
 	}
 	httpReqStatsSchema = s.Schema{
 		"root_uri":   c.Int("/"),
@@ -50,7 +52,7 @@ var (
 			"bytes": c.Int("mem"),
 		},
 		"cores":             c.Int("cores"),
-		"cpu":               c.Int("cpu"),
+		"cpu":               c.Float("cpu"),
 		"total_connections": c.Int("total_connections"),
 		"remotes":           c.Int("remotes"),
 		"in": s.Object{
@@ -135,53 +137,39 @@ func eventMapping(r mb.ReporterV2, content []byte) error {
 
 	err := json.Unmarshal(content, &inInterface)
 	if err != nil {
-		err = errors.Wrap(err, "failure parsing Nats stats API response")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure parsing Nats stats API response")
 	}
 	event, err = statsSchema.Apply(inInterface)
 	if err != nil {
-		err = errors.Wrap(err, "failure applying stats schema")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure applying stats schema")
 	}
 
 	uptime, err := event.GetValue("uptime")
 	if err != nil {
-		err = errors.Wrap(err, "failure retrieving uptime key")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure retrieving uptime key")
 	}
 	uptime, err = convertUptime(uptime.(string))
 	if err != nil {
-		err = errors.Wrap(err, "failure converting uptime from string to integer")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure converting uptime from string to integer")
 	}
 	_, err = event.Put("uptime", uptime)
 	if err != nil {
-		err = errors.Wrap(err, "failure updating uptime key")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure updating uptime key")
 	}
 
 	d, err := event.GetValue("http_req_stats")
 	if err != nil {
-		err = errors.Wrap(err, "failure retrieving http_req_stats key")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure retrieving http_req_stats key")
 	}
 	httpStats, ok := d.(common.MapStr)
 	if !ok {
-		err = errors.Wrap(err, "failure casting http_req_stats to common.Mapstr")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure casting http_req_stats to common.Mapstr")
+
 	}
 	err = event.Delete("http_req_stats")
 	if err != nil {
-		err = errors.Wrap(err, "failure deleting http_req_stats key")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure deleting http_req_stats key")
+
 	}
 	event["http"] = common.MapStr{
 		"req_stats": common.MapStr{
@@ -194,11 +182,21 @@ func eventMapping(r mb.ReporterV2, content []byte) error {
 			},
 		},
 	}
+	cpu, err := event.GetValue("cpu")
+	if err != nil {
+		return errors.Wrap(err, "failure retrieving cpu key")
+	}
+	cpuUtil, ok := cpu.(float64)
+	if !ok {
+		return errors.Wrap(err, "failure casting cpu to float64")
+	}
+	_, err = event.Put("cpu", cpuUtil/100.0)
+	if err != nil {
+		return errors.Wrap(err, "failure updating cpu key")
+	}
 	moduleMetrics, err := moduleSchema.Apply(inInterface)
 	if err != nil {
-		err = errors.Wrap(err, "failure applying module schema")
-		r.Error(err)
-		return err
+		return errors.Wrap(err, "failure applying module schema")
 	}
 	r.Event(mb.Event{MetricSetFields: event, ModuleFields: moduleMetrics})
 	return nil

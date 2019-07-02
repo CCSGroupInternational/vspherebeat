@@ -23,9 +23,11 @@ import (
 	"os"
 	"path"
 
+	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/simulator/esx"
 	"github.com/vmware/govmomi/simulator/vpx"
+	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 )
@@ -516,5 +518,44 @@ func (m *Model) createLocalDatastore(dc string, name string, hosts []*object.Hos
 func (m *Model) Remove() {
 	for _, dir := range m.dirs {
 		_ = os.RemoveAll(dir)
+	}
+}
+
+// Run calls f with a Client connected to a simulator server instance, which is stopped after f returns.
+func (m *Model) Run(f func(context.Context, *vim25.Client) error) error {
+	ctx := context.Background()
+
+	defer m.Remove()
+	err := m.Create()
+	if err != nil {
+		return err
+	}
+
+	s := m.Service.NewServer()
+	defer s.Close()
+
+	c, err := govmomi.NewClient(ctx, s.URL, true)
+	if err != nil {
+		return err
+	}
+
+	defer c.Logout(ctx)
+
+	return f(ctx, c.Client)
+}
+
+// Example calls Model.Run for each model and will panic if f returns an error.
+// If no model is specified, the VPX Model is used by default.
+func Example(f func(context.Context, *vim25.Client) error, model ...*Model) {
+	m := model
+	if len(m) == 0 {
+		m = []*Model{VPX()}
+	}
+
+	for i := range m {
+		err := m[i].Run(f)
+		if err != nil {
+			panic(err)
+		}
 	}
 }

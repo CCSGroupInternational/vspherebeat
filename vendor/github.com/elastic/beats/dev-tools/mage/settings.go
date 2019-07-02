@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	fpmVersion = "1.10.0"
+	fpmVersion = "1.11.0"
 
 	// Docker images. See https://github.com/elastic/golang-crossbuild.
 	beatsFPMImage = "docker.elastic.co/beats-dev/fpm"
@@ -64,6 +64,9 @@ var (
 	BeatVendor      = EnvOr("BEAT_VENDOR", "Elastic")
 	BeatLicense     = EnvOr("BEAT_LICENSE", "ASL 2.0")
 	BeatURL         = EnvOr("BEAT_URL", "https://www.elastic.co/products/beats/"+BeatName)
+	BeatUser        = EnvOr("BEAT_USER", "root")
+
+	BeatProjectType ProjectType
 
 	Snapshot bool
 
@@ -101,11 +104,24 @@ func init() {
 
 	Snapshot, err = strconv.ParseBool(EnvOr("SNAPSHOT", "false"))
 	if err != nil {
-		panic(errors.Errorf("failed to parse SNAPSHOT env value", err))
+		panic(errors.Wrap(err, "failed to parse SNAPSHOT env value"))
 	}
 
 	versionQualifier, versionQualified = os.LookupEnv("VERSION_QUALIFIER")
 }
+
+// ProjectType specifies the type of project (OSS vs X-Pack).
+type ProjectType uint8
+
+// Project types.
+const (
+	OSSProject ProjectType = iota
+	XPackProject
+	CommunityProject
+)
+
+// ErrUnknownProjectType is returned if an unknown ProjectType value is used.
+var ErrUnknownProjectType = fmt.Errorf("unknown ProjectType")
 
 // EnvMap returns map containing the common settings variables and all variables
 // from the environment. args are appended to the output prior to adding the
@@ -137,6 +153,7 @@ func varMap(args ...map[string]interface{}) map[string]interface{} {
 		"BeatVendor":      BeatVendor,
 		"BeatLicense":     BeatLicense,
 		"BeatURL":         BeatURL,
+		"BeatUser":        BeatUser,
 		"Snapshot":        Snapshot,
 		"Qualifier":       versionQualifier,
 	}
@@ -167,6 +184,7 @@ BeatDescription  = {{.BeatDescription}}
 BeatVendor       = {{.BeatVendor}}
 BeatLicense      = {{.BeatLicense}}
 BeatURL          = {{.BeatURL}}
+BeatUser         = {{.BeatUser}}
 VersionQualifier = {{.Qualifier}}
 
 ## Functions
@@ -397,7 +415,7 @@ func getBuildVariableSources() *BuildVariableSources {
 		return buildVariableSources
 	}
 
-	panic(errors.Errorf("magefile must call mage.SetBuildVariableSources() "+
+	panic(errors.Errorf("magefile must call devtools.SetBuildVariableSources() "+
 		"because it is not an elastic beat (repo=%+v)", repo.RootImportPath))
 }
 

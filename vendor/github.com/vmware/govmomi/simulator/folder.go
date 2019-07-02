@@ -22,7 +22,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -301,8 +300,9 @@ func (c *createVM) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 	}
 
 	vm.Guest = &types.GuestInfo{
-		ToolsStatus:  types.VirtualMachineToolsStatusToolsNotInstalled,
-		ToolsVersion: "0",
+		ToolsStatus:        types.VirtualMachineToolsStatusToolsNotInstalled,
+		ToolsVersion:       "0",
+		ToolsRunningStatus: string(types.VirtualMachineToolsRunningStatusGuestToolsNotRunning),
 	}
 
 	vm.Summary.Guest = &types.VirtualMachineGuestSummary{
@@ -319,6 +319,7 @@ func (c *createVM) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 
 	host := Map.Get(*vm.Runtime.Host).(*HostSystem)
 	Map.AppendReference(host, &host.Vm, vm.Self)
+	vm.EnvironmentBrowser = *hostParent(&host.HostSystem).EnvironmentBrowser
 
 	for i := range vm.Datastore {
 		ds := Map.Get(vm.Datastore[i]).(*Datastore)
@@ -489,7 +490,7 @@ func (f *Folder) CreateDVSTask(req *types.CreateDVS_Task) soap.HasFault {
 			return nil, &types.InvalidArgument{InvalidProperty: "name"}
 		}
 
-		dvs.Uuid = uuid.New().String()
+		dvs.Uuid = newUUID(dvs.Name)
 
 		f.putChild(dvs)
 

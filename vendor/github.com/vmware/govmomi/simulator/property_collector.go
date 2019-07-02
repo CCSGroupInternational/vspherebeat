@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/simulator/internal"
+	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -137,9 +139,7 @@ func wrapValue(rval reflect.Value, rtype reflect.Type) interface{} {
 		default:
 			kind := rtype.Elem().Name()
 			// Remove govmomi interface prefix name
-			if strings.HasPrefix(kind, "Base") {
-				kind = kind[4:]
-			}
+			kind = strings.TrimPrefix(kind, "Base")
 			akind, _ := defaultMapType("ArrayOf" + kind)
 			a := reflect.New(akind)
 			a.Elem().FieldByName(kind).Set(rval)
@@ -231,7 +231,7 @@ func isTrue(v *bool) bool {
 }
 
 func isFalse(v *bool) bool {
-	return v == nil || *v == false
+	return v == nil || !*v
 }
 
 func lcFirst(s string) string {
@@ -699,7 +699,7 @@ func (pc *PropertyCollector) WaitForUpdatesEx(ctx *Context, r *types.WaitForUpda
 			pc.updates = nil // clear updates collected by the managed object CRUD listeners
 			pc.mu.Unlock()
 			if len(updates) == 0 {
-				if oneUpdate == true {
+				if oneUpdate {
 					body.Res.Returnval = nil
 					return body
 				}
@@ -747,7 +747,7 @@ func (pc *PropertyCollector) WaitForUpdatesEx(ctx *Context, r *types.WaitForUpda
 			if len(set.FilterSet) != 0 {
 				return body
 			}
-			if oneUpdate == true {
+			if oneUpdate {
 				body.Res.Returnval = nil
 				return body
 			}
@@ -772,5 +772,70 @@ func (pc *PropertyCollector) WaitForUpdates(ctx *Context, r *types.WaitForUpdate
 		}
 	}
 
+	return body
+}
+
+// Fetch is not documented in the vSphere SDK, but ovftool depends on it.
+// A Fetch request is converted to a RetrievePropertiesEx method call by vcsim.
+func (pc *PropertyCollector) Fetch(ctx *Context, req *internal.Fetch) soap.HasFault {
+	body := new(internal.FetchBody)
+
+	if req.This == vim25.ServiceInstance && req.Prop == "content" {
+		content := ctx.Map.content()
+		// ovftool uses API version for 6.0 and fails when these fields are non-nil; TODO
+		content.VStorageObjectManager = nil
+		content.HostProfileManager = nil
+		content.HostSpecManager = nil
+		content.CryptoManager = nil
+		content.HostProfileManager = nil
+		content.HealthUpdateManager = nil
+		content.FailoverClusterConfigurator = nil
+		content.FailoverClusterManager = nil
+		body.Res = &internal.FetchResponse{
+			Returnval: content,
+		}
+		return body
+	}
+
+	if ctx.Map.Get(req.This) == nil {
+		// The Fetch method supports use of super class types, this is a quick hack to support the cases used by ovftool
+		switch req.This.Type {
+		case "ManagedEntity":
+			for o := range ctx.Map.objects {
+				if o.Value == req.This.Value {
+					req.This.Type = o.Type
+					break
+				}
+			}
+		case "ComputeResource":
+			req.This.Type = "Cluster" + req.This.Type
+		}
+	}
+
+	res := pc.RetrievePropertiesEx(ctx, &types.RetrievePropertiesEx{
+		SpecSet: []types.PropertyFilterSpec{{
+			PropSet: []types.PropertySpec{{
+				Type:    req.This.Type,
+				PathSet: []string{req.Prop},
+			}},
+			ObjectSet: []types.ObjectSpec{{
+				Obj: req.This,
+			}},
+		}}})
+
+	if res.Fault() != nil {
+		return res
+	}
+
+	obj := res.(*methods.RetrievePropertiesExBody).Res.Returnval.Objects[0]
+	if len(obj.PropSet) == 0 {
+		fault := obj.MissingSet[0].Fault
+		body.Fault_ = Fault(fault.LocalizedMessage, fault.Fault)
+		return body
+	}
+
+	body.Res = &internal.FetchResponse{
+		Returnval: obj.PropSet[0].Val,
+	}
 	return body
 }

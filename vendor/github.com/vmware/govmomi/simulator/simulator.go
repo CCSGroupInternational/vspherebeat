@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,7 +31,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path"
@@ -44,6 +42,7 @@ import (
 
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/simulator/internal"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -71,13 +70,14 @@ type Service struct {
 
 	readAll func(io.Reader) ([]byte, error)
 
+	Listen   *url.URL
 	TLS      *tls.Config
 	ServeMux *http.ServeMux
 }
 
 // Server provides a simulator Service over HTTP
 type Server struct {
-	*httptest.Server
+	*internal.Server
 	URL    *url.URL
 	Tunnel int
 
@@ -125,7 +125,7 @@ func (s *Service) call(ctx *Context, method *Method) soap.HasFault {
 
 	if session == nil {
 		switch method.Name {
-		case "RetrieveServiceContent", "PbmRetrieveServiceContent", "List", "Login", "LoginByToken", "LoginExtensionByCertificate", "RetrieveProperties", "RetrievePropertiesEx", "CloneSession":
+		case "RetrieveServiceContent", "PbmRetrieveServiceContent", "Fetch", "List", "Login", "LoginByToken", "LoginExtensionByCertificate", "RetrieveProperties", "RetrievePropertiesEx", "CloneSession":
 			// ok for now, TODO: authz
 		default:
 			fault := &types.NotAuthenticated{
@@ -283,6 +283,36 @@ func (d *faultDetail) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	return e.EncodeElement(d.Fault, start)
 }
 
+// response sets xml.Name.Space when encoding Body.
+// Note that namespace is intentionally omitted in the vim25/methods/methods.go Body.Res field tags.
+type response struct {
+	Namespace string
+	Body      soap.HasFault
+}
+
+func (r *response) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	val := reflect.ValueOf(r.Body).Elem().FieldByName("Res")
+	if !val.IsValid() {
+		return fmt.Errorf("%T: invalid response type (missing 'Res' field)", r.Body)
+	}
+	if val.IsNil() {
+		return fmt.Errorf("%T: invalid response (nil 'Res' field)", r.Body)
+	}
+	res := xml.StartElement{
+		Name: xml.Name{
+			Space: "urn:" + r.Namespace,
+			Local: val.Elem().Type().Name(),
+		},
+	}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if err := e.EncodeElement(val.Interface(), res); err != nil {
+		return err
+	}
+	return e.EncodeToken(start.End())
+}
+
 // About generates some info about the simulator.
 func (s *Service) About(w http.ResponseWriter, r *http.Request) {
 	var about struct {
@@ -354,7 +384,7 @@ func (s *Service) RegisterSDK(r *Registry) {
 
 // ServeSDK implements the http.Handler interface
 func (s *Service) ServeSDK(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -389,6 +419,10 @@ func (s *Service) ServeSDK(w http.ResponseWriter, r *http.Request) {
 		res = serverFault(err.Error())
 	} else {
 		ctx.Header = method.Header
+		if method.Name == "Fetch" {
+			// Redirect any Fetch method calls to the PropertyCollector singleton
+			method.This = ctx.Map.content().PropertyCollector
+		}
 		res = s.call(ctx, method)
 	}
 
@@ -411,7 +445,7 @@ func (s *Service) ServeSDK(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusOK)
 
-		soapBody = res
+		soapBody = &response{ctx.Map.Namespace, res}
 	}
 
 	var out bytes.Buffer
@@ -475,7 +509,7 @@ func (s *Service) ServeDatastore(w http.ResponseWriter, r *http.Request) {
 	p := path.Join(ds.Info.GetDatastoreInfo().Url, r.URL.Path)
 
 	switch r.Method {
-	case "POST":
+	case http.MethodPost:
 		_, err := os.Stat(p)
 		if err == nil {
 			// File exists
@@ -485,7 +519,7 @@ func (s *Service) ServeDatastore(w http.ResponseWriter, r *http.Request) {
 
 		// File does not exist, fallthrough to create via PUT logic
 		fallthrough
-	case "PUT":
+	case http.MethodPut:
 		dir := path.Dir(p)
 		_ = os.MkdirAll(dir, 0700)
 
@@ -506,13 +540,11 @@ func (s *Service) ServeDatastore(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServiceVersions handler for the /sdk/vimServiceVersions.xml path.
-func (*Service) ServiceVersions(w http.ResponseWriter, r *http.Request) {
-	// pyvmomi depends on this
-
+func (s *Service) ServiceVersions(w http.ResponseWriter, r *http.Request) {
 	const versions = xml.Header + `<namespaces version="1.0">
  <namespace>
   <name>urn:vim25</name>
-  <version>6.5</version>
+  <version>%s</version>
   <priorVersions>
    <version>6.0</version>
    <version>5.5</version>
@@ -520,7 +552,38 @@ func (*Service) ServiceVersions(w http.ResponseWriter, r *http.Request) {
  </namespace>
 </namespaces>
 `
-	fmt.Fprint(w, versions)
+	fmt.Fprintf(w, versions, s.client.ServiceContent.About.ApiVersion)
+}
+
+// defaultIP returns addr.IP if specified, otherwise attempts to find a non-loopback ipv4 IP
+func defaultIP(addr *net.TCPAddr) string {
+	if !addr.IP.IsUnspecified() {
+		return addr.IP.String()
+	}
+
+	nics, err := net.Interfaces()
+	if err != nil {
+		return addr.IP.String()
+	}
+
+	for _, nic := range nics {
+		if nic.Name == "docker0" || strings.HasPrefix(nic.Name, "vmnet") {
+			continue
+		}
+		addrs, aerr := nic.Addrs()
+		if aerr != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ip, ok := addr.(*net.IPNet); ok && !ip.IP.IsLoopback() {
+				if ip.IP.To4() != nil {
+					return ip.IP.String()
+				}
+			}
+		}
+	}
+
+	return addr.IP.String()
 }
 
 // NewServer returns an http Server instance for the given service
@@ -528,53 +591,56 @@ func (s *Service) NewServer() *Server {
 	s.RegisterSDK(Map)
 
 	mux := s.ServeMux
+	vim := Map.Path + "/vimService"
+	s.sdk[vim] = s.sdk[vim25.Path]
+	mux.HandleFunc(vim, s.ServeSDK)
 	mux.HandleFunc(Map.Path+"/vimServiceVersions.xml", s.ServiceVersions)
 	mux.HandleFunc(folderPrefix, s.ServeDatastore)
+	mux.HandleFunc(nfcPrefix, ServeNFC)
 	mux.HandleFunc("/about", s.About)
 
-	// Using NewUnstartedServer() instead of NewServer(),
-	// for use in main.go, where Start() blocks, we can still set ServiceHostName
-	ts := httptest.NewUnstartedServer(mux)
-
+	if s.Listen == nil {
+		s.Listen = new(url.URL)
+	}
+	ts := internal.NewUnstartedServer(mux, s.Listen.Host)
+	addr := ts.Listener.Addr().(*net.TCPAddr)
+	port := strconv.Itoa(addr.Port)
 	u := &url.URL{
 		Scheme: "http",
-		Host:   ts.Listener.Addr().String(),
+		Host:   net.JoinHostPort(defaultIP(addr), port),
 		Path:   Map.Path,
-		User:   url.UserPassword("user", "pass"),
+	}
+	if s.TLS != nil {
+		u.Scheme += "s"
 	}
 
 	// Redirect clients to this http server, rather than HostSystem.Name
 	Map.SessionManager().ServiceHostName = u.Host
-
-	if f := flag.Lookup("httptest.serve"); f != nil {
-		// Avoid the blocking behaviour of httptest.Server.Start() when this flag is set
-		_ = f.Value.Set("")
-	}
-
-	cert := ""
-	if s.TLS == nil {
-		ts.Start()
-	} else {
-		ts.TLS = s.TLS
-		ts.TLS.ClientAuth = tls.RequestClientCert // Used by SessionManager.LoginExtensionByCertificate
-		ts.StartTLS()
-		u.Scheme += "s"
-
-		cert = base64.StdEncoding.EncodeToString(ts.TLS.Certificates[0].Certificate[0])
-	}
 
 	// Add vcsim config to OptionManager for use by SDK handlers (see lookup/simulator for example)
 	m := Map.OptionManager()
 	m.Setting = append(m.Setting,
 		&types.OptionValue{
 			Key:   "vcsim.server.url",
-			Value: ts.URL,
-		},
-		&types.OptionValue{
-			Key:   "vcsim.server.cert",
-			Value: cert,
+			Value: u.String(),
 		},
 	)
+
+	u.User = s.Listen.User
+	if u.User == nil {
+		u.User = url.UserPassword("user", "pass")
+	}
+
+	if s.TLS != nil {
+		ts.TLS = s.TLS
+		ts.TLS.ClientAuth = tls.RequestClientCert // Used by SessionManager.LoginExtensionByCertificate
+		Map.SessionManager().TLSCert = func() string {
+			return base64.StdEncoding.EncodeToString(ts.TLS.Certificates[0].Certificate[0])
+		}
+		ts.StartTLS()
+	} else {
+		ts.Start()
+	}
 
 	return &Server{
 		Server: ts,

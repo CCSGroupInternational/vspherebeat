@@ -18,9 +18,9 @@
 package node_stats
 
 import (
-	"github.com/elastic/beats/libbeat/common/cfgwarn"
+	"fmt"
+
 	"github.com/elastic/beats/metricbeat/helper"
-	"github.com/elastic/beats/metricbeat/helper/elastic"
 
 	"github.com/elastic/beats/metricbeat/mb"
 	"github.com/elastic/beats/metricbeat/mb/parse"
@@ -37,24 +37,26 @@ func init() {
 	)
 }
 
+const (
+	nodeStatsPath = "_node/stats"
+)
+
 var (
 	hostParser = parse.URLHostParserBuilder{
 		DefaultScheme: "http",
 		PathConfigKey: "path",
-		DefaultPath:   "_node/stats",
+		DefaultPath:   nodeStatsPath,
 	}.Build()
 )
 
 // MetricSet type defines all fields of the MetricSet
 type MetricSet struct {
 	*logstash.MetricSet
-	http *helper.HTTP
+	*helper.HTTP
 }
 
 // New create a new instance of the MetricSet
 func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
-	cfgwarn.Beta("the " + base.FullyQualifiedName() + " metricset is beta")
-
 	ms, err := logstash.NewMetricSet(base)
 	if err != nil {
 		return nil, err
@@ -64,6 +66,26 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if ms.XPack {
+		logstashVersion, err := logstash.GetVersion(http, ms.HostData().SanitizedURI+nodeStatsPath)
+		if err != nil {
+			return nil, err
+		}
+
+		arePipelineGraphAPIsAvailable := logstash.ArePipelineGraphAPIsAvailable(logstashVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		if !arePipelineGraphAPIsAvailable {
+			const errorMsg = "The %v metricset with X-Pack enabled is only supported with Logstash >= %v. You are currently running Logstash %v"
+			return nil, fmt.Errorf(errorMsg, ms.FullyQualifiedName(), logstash.PipelineGraphAPIsAvailableVersion, logstashVersion)
+		}
+
+		http.SetURI(http.GetURI() + "?vertices=true")
+	}
+
 	return &MetricSet{
 		ms,
 		http,
@@ -73,16 +95,24 @@ func New(base mb.BaseMetricSet) (mb.MetricSet, error) {
 // Fetch methods implements the data gathering and data conversion to the right format
 // It returns the event which is then forward to the output. In case of an error, a
 // descriptive error must be returned.
-func (m *MetricSet) Fetch(r mb.ReporterV2) {
-	content, err := m.http.FetchContent()
+func (m *MetricSet) Fetch(r mb.ReporterV2) error {
+	content, err := m.HTTP.FetchContent()
 	if err != nil {
-		elastic.ReportAndLogError(err, r, m.Log)
-		return
+		if m.XPack {
+			m.Logger().Error(err)
+			return nil
+		}
+		return err
 	}
 
-	err = eventMapping(r, content)
-	if err != nil {
-		m.Log.Error(err)
-		return
+	if !m.XPack {
+		return eventMapping(r, content)
 	}
+
+	err = eventMappingXPack(r, m, content)
+	if err != nil {
+		m.Logger().Error(err)
+	}
+
+	return nil
 }

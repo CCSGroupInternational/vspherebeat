@@ -1,22 +1,22 @@
 package vspherePerfManager
 
 import (
+	"context"
+	u "github.com/ahl5esoft/golang-underscore"
 	"github.com/vmware/govmomi"
 	"net/url"
 	"strings"
-	"context"
-	"fmt"
-	u "github.com/ahl5esoft/golang-underscore"
 )
 
 type VspherePerfManager struct {
-	Config       Config
-	client       *govmomi.Client
-	metricsInfo  map[int32]metricInfo
-	objects      map[string]map[string]ManagedObject
+	Config      Config
+	client      *govmomi.Client
+	metricsInfo map[int32]metricInfo
+	objects     map[string]map[string]ManagedObject
+	context     context.Context
 }
 
-func (v *VspherePerfManager) Init() (error) {
+func (v *VspherePerfManager) Init() error {
 	err := v.connect(v.Config.Vcenter)
 	if err != nil {
 		return err
@@ -31,6 +31,7 @@ func (v *VspherePerfManager) Init() (error) {
 
 func (v *VspherePerfManager) connect(c Vcenter) error {
 	ctx, cancel := context.WithCancel(context.Background())
+	v.context = ctx
 	defer cancel()
 
 	u, err := url.Parse(strings.Split(c.Host, "://")[0] + "://" +
@@ -48,6 +49,10 @@ func (v *VspherePerfManager) connect(c Vcenter) error {
 
 	v.client = client
 	return nil
+}
+
+func (v *VspherePerfManager) Disconnect() error {
+	return v.client.Logout(v.context)
 }
 
 func (v *VspherePerfManager) Get(entityType PmSupportedEntities) []ManagedObject {
@@ -73,12 +78,7 @@ func (v *VspherePerfManager) fetch(ObjectType string) []ManagedObject {
 		}
 
 		if ok {
-			result, err := v.query(entity)
-			if err != nil {
-				fmt.Errorf("The following error occorred when query the entity "+ v.GetProperty(entity, "name").(string) + ": %g ", err)
-			} else {
-				entities = append(entities, result)
-			}
+			entities = append(entities, v.query(entity))
 		}
 	}
 	return entities

@@ -128,12 +128,8 @@ func (s *searchDatastore) queryMatch(file os.FileInfo) bool {
 			}
 		case *types.VmDiskFileQuery:
 			if ext == ".vmdk" {
-				if strings.HasSuffix(name, "-flat.vmdk") {
-					// only matches the descriptor, not the backing file(s)
-					return false
-				}
 				// TODO: check Filter and Details fields
-				return true
+				return !strings.HasSuffix(name, "-flat.vmdk")
 			}
 		case *types.VmLogFileQuery:
 			if ext == ".log" {
@@ -187,7 +183,7 @@ func (s *searchDatastore) search(ds *types.ManagedObjectReference, folder string
 	return nil
 }
 
-func (s *searchDatastore) Run(Task *Task) (types.AnyType, types.BaseMethodFault) {
+func (s *searchDatastore) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 	p, fault := parseDatastorePath(s.DatastorePath)
 	if fault != nil {
 		return nil, fault
@@ -199,6 +195,8 @@ func (s *searchDatastore) Run(Task *Task) (types.AnyType, types.BaseMethodFault)
 	}
 
 	ds := ref.(*Datastore)
+	task.Info.Entity = &ds.Self // TODO: CreateTask() should require mo.Entity, rather than mo.Reference
+	task.Info.EntityName = ds.Name
 
 	dir := path.Join(ds.Info.GetDatastoreInfo().Url, p.Path)
 

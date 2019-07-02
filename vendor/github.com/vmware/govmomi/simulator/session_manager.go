@@ -36,6 +36,7 @@ type SessionManager struct {
 	mo.SessionManager
 
 	ServiceHostName string
+	TLSCert         func() string
 
 	sessions map[string]Session
 }
@@ -57,31 +58,44 @@ func createSession(ctx *Context, name string, locale string) types.UserSession {
 
 	session := Session{
 		UserSession: types.UserSession{
-			Key:            uuid.New().String(),
-			UserName:       name,
-			FullName:       name,
-			LoginTime:      now,
-			LastActiveTime: now,
-			Locale:         locale,
-			MessageLocale:  locale,
+			Key:              uuid.New().String(),
+			UserName:         name,
+			FullName:         name,
+			LoginTime:        now,
+			LastActiveTime:   now,
+			Locale:           locale,
+			MessageLocale:    locale,
+			ExtensionSession: types.NewBool(false),
 		},
 		Registry: NewRegistry(),
 	}
 
 	ctx.SetSession(session, true)
 
-	return session.UserSession
+	return ctx.Session.UserSession
+}
+
+func (s *SessionManager) validLogin(ctx *Context, req *types.Login) bool {
+	if ctx.Session != nil {
+		return false
+	}
+	user := ctx.svc.Listen.User
+	if user == nil {
+		return req.UserName != "" && req.Password != ""
+	}
+	pass, _ := user.Password()
+	return req.UserName == user.Username() && req.Password == pass
 }
 
 func (s *SessionManager) Login(ctx *Context, req *types.Login) soap.HasFault {
 	body := new(methods.LoginBody)
 
-	if req.UserName == "" || req.Password == "" || ctx.Session != nil {
-		body.Fault_ = invalidLogin
-	} else {
+	if s.validLogin(ctx, req) {
 		body.Res = &types.LoginResponse{
 			Returnval: createSession(ctx, req.UserName, req.Locale),
 		}
+	} else {
+		body.Fault_ = invalidLogin
 	}
 
 	return body
@@ -273,6 +287,7 @@ func (c *Context) SetSession(session Session, login bool) {
 	session.UserAgent = c.req.UserAgent()
 	session.IpAddress = strings.Split(c.req.RemoteAddr, ":")[0]
 	session.LastActiveTime = time.Now()
+	session.CallCount++
 
 	c.svc.sm.sessions[session.Key] = session
 	c.Session = &session

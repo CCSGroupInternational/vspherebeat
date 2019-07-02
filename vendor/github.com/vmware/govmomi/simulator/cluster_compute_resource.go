@@ -51,13 +51,7 @@ func (add *addHost) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 	}
 
 	host := NewHostSystem(esx.HostSystem)
-	host.Summary.Config.Name = spec.HostName
-	host.Name = host.Summary.Config.Name
-	if add.req.AsConnected {
-		host.Runtime.ConnectionState = types.HostSystemConnectionStateConnected
-	} else {
-		host.Runtime.ConnectionState = types.HostSystemConnectionStateDisconnected
-	}
+	host.configure(spec, add.req.AsConnected)
 
 	cr := add.ClusterComputeResource
 	Map.PutEntity(cr, Map.NewEntity(host))
@@ -65,6 +59,7 @@ func (add *addHost) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 
 	cr.Host = append(cr.Host, host.Reference())
 	addComputeResource(cr.Summary.GetComputeResourceSummary(), host)
+	host.Network = cr.Network[:1] // VM Network
 
 	return host.Reference(), nil
 }
@@ -304,7 +299,9 @@ func CreateClusterComputeResource(f *Folder, name string, spec types.ClusterConf
 	}
 
 	cluster := &ClusterComputeResource{}
+	cluster.EnvironmentBrowser = newEnvironmentBrowser()
 	cluster.Name = name
+	cluster.Network = Map.getEntityDatacenter(f).defaultNetwork()
 	cluster.Summary = &types.ClusterComputeResourceSummary{
 		UsageSummary: new(types.ClusterUsageSummary),
 	}

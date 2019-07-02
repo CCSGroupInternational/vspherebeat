@@ -14,6 +14,7 @@ type ManagedObject struct {
 	Entity types.ManagedObjectReference
 	Properties []types.DynamicProperty
 	Metrics []Metric
+	Error error
 }
 
 func (v *VspherePerfManager) managedObjects() error {
@@ -70,7 +71,7 @@ func (v *VspherePerfManager) managedObjects() error {
 	return v.retrieveProperties(objectSet, objectTypes)
 }
 
-func (v *VspherePerfManager) retrieveProperties(objectSet []types.ObjectSpec, objectTypes []string) (error) {
+func (v *VspherePerfManager) retrieveProperties(objectSet []types.ObjectSpec, objectTypes []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

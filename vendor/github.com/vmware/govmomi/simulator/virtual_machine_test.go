@@ -245,6 +245,14 @@ func TestCreateVm(t *testing.T) {
 				if err != nil {
 					t.Error(err)
 				}
+
+				running, err := vm.IsToolsRunning(ctx)
+				if err != nil {
+					t.Error(err)
+				}
+				if running {
+					t.Error("tools running")
+				}
 			}
 		}
 
@@ -657,12 +665,12 @@ func TestCreateVmWithDevices(t *testing.T) {
 		if ok {
 			ndisk++
 			summary := disk.DeviceInfo.GetDescription().Summary
-			if "1,024 KB" != summary {
+			if summary != "1,024 KB" {
 				t.Errorf("expected '1,1024 KB', got %s", summary)
 			}
 		}
 	}
-	if 2 != ndisk {
+	if ndisk != 2 {
 		t.Errorf("expected 1 disk, got %d", ndisk)
 	}
 }
@@ -1094,7 +1102,9 @@ func TestVmRefreshStorageInfo(t *testing.T) {
 		t.Errorf("expected %d, got %d", fileLayoutExCount, len(vmm.LayoutEx.File))
 	}
 
-	vm.RefreshStorageInfo(ctx)
+	if err = vm.RefreshStorageInfo(ctx); err != nil {
+		t.Error(err)
+	}
 
 	if len(vmm.LayoutEx.File) != fileLayoutExCount+1 {
 		t.Errorf("expected %d, got %d", fileLayoutExCount+1, len(vmm.LayoutEx.File))
@@ -1103,7 +1113,9 @@ func TestVmRefreshStorageInfo(t *testing.T) {
 	_ = f.Close()
 	_ = os.Remove(f.Name())
 
-	vm.RefreshStorageInfo(ctx)
+	if err = vm.RefreshStorageInfo(ctx); err != nil {
+		t.Error(err)
+	}
 
 	if len(vmm.LayoutEx.File) != fileLayoutExCount {
 		t.Errorf("expected %d, got %d", fileLayoutExCount, len(vmm.LayoutEx.File))

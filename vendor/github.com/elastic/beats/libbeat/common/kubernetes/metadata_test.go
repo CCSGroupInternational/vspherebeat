@@ -32,12 +32,12 @@ func TestPodMetadata(t *testing.T) {
 	Deployment := "Deployment"
 	test := "test"
 	ReplicaSet := "ReplicaSet"
+	StatefulSet := "StatefulSet"
 	True := true
 	False := false
 	tests := []struct {
-		pod    *Pod
-		meta   common.MapStr
-		config *common.Config
+		pod  *Pod
+		meta common.MapStr
 	}{
 		{
 			pod: &Pod{
@@ -59,7 +59,6 @@ func TestPodMetadata(t *testing.T) {
 				"namespace": "test",
 				"labels":    common.MapStr{"a": common.MapStr{"value": "bar", "key": "foo"}},
 			},
-			config: common.NewConfig(),
 		},
 		{
 			pod: &Pod{
@@ -92,12 +91,55 @@ func TestPodMetadata(t *testing.T) {
 				"labels":     common.MapStr{"a": common.MapStr{"value": "bar", "key": "foo"}},
 				"deployment": common.MapStr{"name": "test"},
 			},
-			config: common.NewConfig(),
+		},
+		{
+			pod: &Pod{
+				Metadata: &metav1.ObjectMeta{
+					Labels: map[string]string{"a.key": "foo", "a": "bar"},
+					Uid:    &UID,
+					OwnerReferences: []*metav1.OwnerReference{
+						{
+							Kind:       &Deployment,
+							Name:       &test,
+							Controller: &False,
+						},
+						{
+							Kind:       &ReplicaSet,
+							Name:       &ReplicaSet,
+							Controller: &True,
+						},
+						{
+							Kind:       &StatefulSet,
+							Name:       &StatefulSet,
+							Controller: &True,
+						},
+					},
+				},
+				Spec: &v1.PodSpec{
+					NodeName: &test,
+				},
+			},
+			meta: common.MapStr{
+				"pod": common.MapStr{
+					"name": "",
+					"uid":  "005f3b90-4b9d-12f8-acf0-31020a840133",
+				},
+				"node":        common.MapStr{"name": "test"},
+				"labels":      common.MapStr{"a": common.MapStr{"value": "bar", "key": "foo"}},
+				"replicaset":  common.MapStr{"name": "ReplicaSet"},
+				"statefulset": common.MapStr{"name": "StatefulSet"},
+			},
 		},
 	}
 
 	for _, test := range tests {
-		metaGen, err := NewMetaGenerator(test.config)
+		config, err := common.NewConfigFrom(map[string]interface{}{
+			"labels.dedot":        false,
+			"annotations.dedot":   false,
+			"include_annotations": []string{"b", "b.key"},
+		})
+
+		metaGen, err := NewMetaGenerator(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,12 +152,12 @@ func TestPodMetadataDeDot(t *testing.T) {
 	Deployment := "Deployment"
 	test := "test"
 	ReplicaSet := "ReplicaSet"
+	StatefulSet := "StatefulSet"
 	True := true
 	False := false
 	tests := []struct {
-		pod    *Pod
-		meta   common.MapStr
-		config *common.Config
+		pod  *Pod
+		meta common.MapStr
 	}{
 		{
 			pod: &Pod{
@@ -139,7 +181,6 @@ func TestPodMetadataDeDot(t *testing.T) {
 				"labels":      common.MapStr{"a": "bar", "a_key": "foo"},
 				"annotations": common.MapStr{"b": "bar", "b_key": "foo"},
 			},
-			config: common.NewConfig(),
 		},
 		{
 			pod: &Pod{
@@ -172,14 +213,49 @@ func TestPodMetadataDeDot(t *testing.T) {
 				"labels":     common.MapStr{"a": "bar", "a_key": "foo"},
 				"deployment": common.MapStr{"name": "test"},
 			},
-			config: common.NewConfig(),
+		},
+		{
+			pod: &Pod{
+				Metadata: &metav1.ObjectMeta{
+					Labels: map[string]string{"a.key": "foo", "a": "bar"},
+					Uid:    &UID,
+					OwnerReferences: []*metav1.OwnerReference{
+						{
+							Kind:       &Deployment,
+							Name:       &test,
+							Controller: &False,
+						},
+						{
+							Kind:       &ReplicaSet,
+							Name:       &ReplicaSet,
+							Controller: &True,
+						},
+						{
+							Kind:       &StatefulSet,
+							Name:       &StatefulSet,
+							Controller: &True,
+						},
+					},
+				},
+				Spec: &v1.PodSpec{
+					NodeName: &test,
+				},
+			},
+			meta: common.MapStr{
+				"pod": common.MapStr{
+					"name": "",
+					"uid":  "005f3b90-4b9d-12f8-acf0-31020a840133",
+				},
+				"node":        common.MapStr{"name": "test"},
+				"labels":      common.MapStr{"a": "bar", "a_key": "foo"},
+				"replicaset":  common.MapStr{"name": "ReplicaSet"},
+				"statefulset": common.MapStr{"name": "StatefulSet"},
+			},
 		},
 	}
 
 	for _, test := range tests {
 		config, err := common.NewConfigFrom(map[string]interface{}{
-			"labels.dedot":        true,
-			"annotations.dedot":   true,
 			"include_annotations": []string{"b", "b.key"},
 		})
 		metaGen, err := NewMetaGenerator(config)

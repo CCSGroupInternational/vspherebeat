@@ -68,6 +68,15 @@ func (dss *HostDatastoreSystem) add(ds *Datastore) *soap.Fault {
 	ds.Summary.Datastore = &ds.Self
 	ds.Summary.Name = ds.Name
 	ds.Summary.Url = info.Url
+	ds.Capability = types.DatastoreCapability{
+		DirectoryHierarchySupported:      true,
+		RawDiskMappingsSupported:         false,
+		PerFileThinProvisioningSupported: true,
+		StorageIORMSupported:             types.NewBool(true),
+		NativeSnapshotSupported:          types.NewBool(false),
+		TopLevelDirectoryCreateSupported: types.NewBool(true),
+		SeSparseSupported:                types.NewBool(true),
+	}
 
 	dss.Datastore = append(dss.Datastore, ds.Self)
 	dss.Host.Datastore = dss.Datastore
@@ -98,7 +107,8 @@ func (dss *HostDatastoreSystem) CreateLocalDatastore(c *types.CreateLocalDatasto
 		Path: c.Path,
 	}
 
-	ds.Summary.Type = "local"
+	ds.Summary.Type = string(types.HostFileSystemVolumeFileSystemTypeOTHER)
+	ds.Summary.MaintenanceMode = string(types.DatastoreSummaryMaintenanceModeStateNormal)
 
 	if err := dss.add(ds); err != nil {
 		r.Fault_ = err
@@ -145,6 +155,7 @@ func (dss *HostDatastoreSystem) CreateNasDatastore(c *types.CreateNasDatastore) 
 	}
 
 	ds.Summary.Type = c.Spec.Type
+	ds.Summary.MaintenanceMode = string(types.DatastoreSummaryMaintenanceModeStateNormal)
 
 	if err := dss.add(ds); err != nil {
 		r.Fault_ = err
