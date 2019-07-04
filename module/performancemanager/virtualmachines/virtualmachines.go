@@ -157,8 +157,16 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 			datastoreName := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "name").(string)
 			datastoreUuid := vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "summary.url").(string)
 			datastores[strings.Split(datastoreUuid, "/")[len(strings.Split(datastoreUuid, "/"))-2]] = datastoreName
-			for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
-				vmfs[vmfsInfo.DiskName] = datastoreName
+
+			switch vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(type) {
+				case types.VmfsDatastoreInfo:
+					for _, vmfsInfo := range vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info").(types.VmfsDatastoreInfo).Vmfs.Extent {
+						vmfs[vmfsInfo.DiskName] = datastoreName
+					}
+				case *types.NasDatastoreInfo:
+					continue
+				default:
+					m.Logger().Warn(vspherePm.Config.Vcenter.Host + ":" + vspherePm.GetProperty(vm, "name").(string) + ":",  "datastore has a different type : " , reflect.ValueOf(vspherePm.GetProperty(vspherePm.GetObject(string(pm.Datastores), datastore.Value ), "info")).Elem().Type() )
 			}
 		}
 
