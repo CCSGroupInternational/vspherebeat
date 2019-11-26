@@ -209,8 +209,15 @@ func (m *MetricSet) Fetch(report mb.ReporterV2) {
 				}
 			}
 
+			var numVirtualDisk int32
+			if numVirtualDisksInterface := vspherePm.GetProperty(vm, "summary.config.numVirtualDisks"); numVirtualDisksInterface != nil {
+				numVirtualDisk = numVirtualDisksInterface.(int32)
+			} else {
+				numVirtualDisk = 0
+			}
+
 			metadata["Disks"] = common.MapStr{
-				"NumVirtualDisks"      : vspherePm.GetProperty(vm, "summary.config.numVirtualDisks").(int32),
+				"NumVirtualDisks"      : numVirtualDisk,
 				"TotalCapacityInBytes" : totalCapacityInBytes,
 			}
 
